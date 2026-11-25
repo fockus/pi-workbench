@@ -3,7 +3,7 @@
   "snapshot_date": "2026-11-25",
   "core": {
     "name": "@earendil-works/pi-coding-agent",
-    "version": "1.5.0"
+    "version": "1.6.1"
   },
   "plugins": {
     "@aliou/pi-processes": "0.13.3",
@@ -3404,8 +3404,8 @@
     "Fixed panel patch installer CLI detection for symlinked paths; made regression tests portable."
   ],
   "verification": {
-    "core_files_equal": 1286,
-    "direct_plugin_files_equal_after_patches": 1900,
+    "core_files_equal": 1330,
+    "direct_plugin_files_equal_after_patches": 1902,
     "resource_loader_errors": 0,
     "inherited_skill_name_warnings": 10,
     "gitleaks_findings": 0,
