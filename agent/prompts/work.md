@@ -1,0 +1,377 @@
+---
+description: "Executes Memory Bank workflow modes from pipeline.yaml — existing plan/spec execution by default, optional full-cycle requirements→plan→implementation→review flows. Use when the user says «реализуй», «продолжай», «следующий шаг», go by the plan."
+allowed-tools: [Bash, Read, Task]
+---
+
+# /mb work [target] [--workflow NAME] [--tier T] [--verify stage|plan|run|off] [--review] [--fix] [--loop N] [--range A-B] [--auto] [--dry-run] [--budget TOK] [--max-cycles N] [--qa] [--allow-protected]
+
+Run the executable engine using a workflow mode resolved from `pipeline.yaml`. By default (`medium`), `/mb work` is intentionally simple: **implement → verify → done** from an already-created plan/spec, with one verifier pass at the end of the plan. Presets run from **simple** (implementer self-check only) through **complex** (+ one reviewer) to **governed** (`implement → verify → review ensemble → judge → fix/backlog → done`); other modes: **full-cycle** (`discuss → sdd → plan → implement → verify → done`), **requirements-plan**, **implement-only**, **review-fix**, or **review-only**. Severity gates, judge gates, token budgets, protected-path checks, and the sprint context guard provide hard stops for `--auto` mode.
+
+Resolve `SKILL_DIR` from the loaded skill first (Codex: `${CODEX_HOME:-$HOME/.codex}/skills/memory-bank`); helpers never use bare project-relative `scripts/…` paths. The fallback below preserves Claude Code:
+`SKILL_DIR="${MB_SKILLS_ROOT:-${SKILL_DIR:-$HOME/.claude/skills/memory-bank}}"`; stop if `$SKILL_DIR/scripts/_lib.sh` is missing.
+
+## Cost ladder
+
+| Preset (effort tier) | Dispatches per item | Verifier (default cadence) | Tests | When to choose |
+|--------|--------------------:|----------|----------|----------------|
+| `simple` (small) — implement → done | 1 | none; implementer self-checks | targeted, by the implementer | A small change that still came as a plan. |
+| `medium` (standard) — implement → verify → done | 1 (+1 verifier per plan) | `plan`: once, after the last item | targeted per item; full suite once at plan end | **Default.** A plan or spec exists, tests are the evidence. |
+| `complex` (large) — + review → fix | 2 clean, ≤6 with fix cycles (+1 verifier per plan) | `plan` | targeted per cycle; full suite once at plan end | Cross-cutting work from a spec (`discuss → sdd` first). |
+| `governed` (extra) — + review ensemble → judge → fix | 8 clean, up to ~25 with fix cycles (+1 verifier per plan) | `plan` | targeted per cycle; full suite once at plan end | Security, reliability, accuracy; release gates. |
+
+`--verify=stage|plan|run|off` overrides the cadence for one run. Aliases: `execution` → `medium`, `governed-execution`/`strict` → `governed`; a project workflow without `verify.cadence` gets `plan` (set `stage` explicitly for per-item).
+
+## Reference material
+
+The workflow-mode matrix, verifier cadence, JSON Lines schema, worked examples, script inventory, parallel-run guidance, and artifact formats (spec tasks, plan-as-wrapper, range parsing) live in **`references/work-reference.md`**; sprint contracts / progress trend / strategic pivoting are in `references/work-loop-v2.md`. `references/work-loop-reference.md` holds the target-resolution forms, the worktree rule, the durable-vs-ephemeral progress note, the hard-stop epilogue, the flag table (`--workflow`, `--tier`, `--verify`, `--cost`, `--host`, `--qa`, `--range`, `--dry-run`, `--auto`, `--review`/`--judge`/`--fix`, `--max-cycles`/`--loop`, `--budget`, `--no-adapt`, `--allow-protected`, `--slim`/`--full` (exports `MB_WORK_MODE=slim|full` for the loop subshell), `--contract`) and the related commands. This file keeps the normative per-item loop.
+
+## How `/mb work` resolves your input
+
+The first positional arg `<target>` resolves in this order: (1) Existing path, (2) Substring of a plan basename, (3) Topic name (`specs/<topic>/tasks.md`) or OpenSpec change (`<id>` / `openspec/changes/<id>`: the resolver imports or syncs it into the bank triple, and a conflict exits non-zero before any work), (4) Freeform (≥ 3 words, exit 3 + candidates), (5) Empty target → a plan from the `<!-- mb-active-plans -->` block of `roadmap.md`: plans with `status: paused|cancelled|done|blocked` or an open `depends_on` are skipped (stderr says why), then the only eligible one wins, else the only `in_progress` one, else exit 2 with the eligible list; the form table is in `references/work-loop-reference.md` § Target resolution forms.
+
+Underlying script: `bash "$SKILL_DIR"/scripts/mb-work-resolve.sh [target] [--mb path]`.
+
+**Parallel resolve (opt-in, `MB_WORK_PARALLEL`).** For an empty target with `MB_WORK_PARALLEL=1`, pass `--skip-claimed` to `mb-work-resolve.sh`. It filters path-keyed live claims; current `plan`/`spec` category claims can escape that filter. Always treat `mb-work-state.sh init` as authoritative: exit 4 refuses a live foreign claim. Never dispatch a refused item or steal a live claim; finish the owning item before retrying, or report the blocked run.
+
+## Per-item workflow for every host
+
+Run this loop for an explicit `/mb work` request or when Task routing selects it for implementation. Read the selected plan/spec first; an explicit whole-plan request authorizes continuation without repeating per-item approval.
+
+**Dispatch adapters:** Claude Code uses the `Task(...)` examples below unchanged. Codex uses `spawn_agent(agent_type=<resolved name>, message=<same prompt>)` and waits for its result before dependent steps; its final response is delivered to the parent automatically. Codex has no native `/mb` slash command or Claude `Task` tool. Set `MB_AGENT=codex` on Codex; use `--host codex` consistently in workflow and work-plan resolution.
+
+1. **Resolve workflow mode.** Resolve the effective pipeline and selected workflow:
+
+   ```bash
+   bash "$SKILL_DIR"/scripts/mb-workflow.sh --mb <bank> --workflow <name-or-empty> [--review|--no-review] [--judge|--no-judge] [--fix|--no-fix] [--brainstorm] [--sdd] [--plan] [--stages a,b,c] [--tier T] [--verify=C] [--host H] [--no-adapt] [--qa] --json
+   ```
+
+   **Thread every supported composition flag the user typed into this call verbatim** — that is what turns `/mb work <target> --review --fix --loop 4` into `implement → verify → review → fix → done` with a bounded fix-cycle. `--fix` and `--judge` each require `review` (exit 2 otherwise); a flag-added `fix` on a preset with no loop block gets loop defaults (`returns_to: verify`, `max_cycles` from `pipeline.yaml:review`). The returned JSON contains `steps`, `entrypoint`, `interactive`, `loop`, `verify_cadence`, `self_verify`, `adapt` (step 5c1), and `qa` only when QA is on (step 5c2). `--tier trivial` exits 2: no `/mb work` needed. The orchestrator MUST follow this workflow instead of hard-coding one order. `--auto`, `--budget`, `--range`, `--loop N` and `--max-cycles N` are driver flags, not arguments to this resolver (`--loop` and `--max-cycles` here only select output). `--max-cycles N` — and its alias **`--loop N`** — overrides `workflow.loop.max_cycles` for this run only: it is the ceiling on review→fix cycles before `on_max_cycles` handling fires (step 5f), not a count of review dispatches to run unconditionally. A plan's `qa: on` declaration counts as `--qa` for both this call and step 3's `mb-work-plan.sh` (a spec target: the wrapper linking it, `grep -l '^linked_spec: *specs/<topic>' <bank>/plans/*.md`); without it, no flag.
+
+2. **Run planning steps only when selected.** If the selected workflow contains:
+
+   - `discuss` — run the `/mb discuss <topic>` contract: one-question-at-a-time interview, write `context/<topic>.md`, EARS-validate it. This is interactive; do not pretend it happened without user answers.
+   - `sdd` — run the `/mb sdd <topic>` contract: create/update `specs/<topic>/{requirements.md,design.md,tasks.md}` and validate with `mb-spec-validate.sh`.
+   - `plan` — run the `/mb plan <type> <topic>` contract or create a plan-as-wrapper linked to the spec.
+
+   If the selected workflow has only planning steps (for example `requirements-plan`), stop after these artifacts are created and summarize paths. Do not dispatch implementers.
+
+3. **Resolve execution target when execution/review steps are present.** If the workflow contains any of `implement`, `verify`, `review`, `fix`, or `done`, resolve the target and range:
+
+   ```bash
+   bash "$SKILL_DIR"/scripts/mb-work-plan.sh [--target ...] [--range ...] --verify=<json.verify_cadence> [--cost C] [--host H] [--qa] --mb <bank>
+   ```
+
+   The script outputs JSON Lines as described above, including resolved `agent`, `model` (+ `model_source`, `cost`, `host`, `step_models` for verifier/reviewer/judge — cost tiers, `references/work-reference.md` § JSON Lines schema), and `thinking`, plus `verify` / `final_verify` (and `qa` when on) per item (a multi-plan run repeats `--target`).
+
+   **Parallel waves (`wave`, AGR-073).** Equal-wave items have disjoint `Files:` and no dependency. Export `MB_WORK_PARALLEL=1`; each item needs its own run_id/claim, one owner per shared file, and progress through `mb-work-progress-append.sh`. Dispatch independent items together only after their claims succeed. Current category claims can refuse a second item (exit 4); then complete the owning item and retry the remaining wave serially, never `--takeover` a live worker. Subsequent waves wait for the current one. `verify`/`final_verify` keep their cadence; final verification remains on the last item.
+
+   On `--dry-run`, print the selected workflow + `## Execution Plan` summary and **stop**; do not dispatch.
+
+4. **Establish durable run-state, then initialise budget (if `--budget TOK` given).** Mint the session's `run_id` once, using the first pending item's `source`/`item_no` from step 3's JSON Lines, and reuse it for every item and every budget call for the rest of this run (this is what survives a compaction/abort — see *Resume after interruption* below):
+
+   ```bash
+   RUN_ID=$(bash "$SKILL_DIR"/scripts/mb-work-state.sh init <source> <first_item_no> \
+     --source-path <source_path> --source-topic <source_topic> --max-cycles <resolved_max_cycles> --mb <bank>)
+   ```
+
+   **Thread `--source-path`/`--source-topic` verbatim from the item's JSON Lines fields of the same name — never omit them.** `<source>` is only the *category* (`plan`/`spec`); the eval gate resolves a task's declared `**Eval:**` through the locator fields. Passing the category alone makes every lookup target the non-existent `<bank>/specs/spec/tasks.md`, at which point `eval-red`/`eval-green` refuse with `no Eval declaration resolvable` and the whole red→green gate silently stops applying to real runs.
+
+   Resolve `<resolved_max_cycles>` once: CLI `--max-cycles N` / `--loop N` wins, else step 1's `loop.max_cycles`, else 2. Pass it to every `init`; the helper's fallback reads only the governed preset and cannot infer this run's selected workflow. If `--budget TOK` was given, run `bash "$SKILL_DIR"/scripts/mb-work-budget.sh init <TOK> --run-id "$RUN_ID" --mb <bank>`. Subsequent steps call `bash "$SKILL_DIR"/scripts/mb-work-budget.sh check --run-id "$RUN_ID" --mb <bank>` after each Task dispatch; exit 1 = warn (log and continue), exit 2 = stop (halt the loop). Add tokens after each Task with `bash "$SKILL_DIR"/scripts/mb-work-budget.sh add <delta> --run-id "$RUN_ID" --mb <bank>`. Threading `--run-id` means an orphaned `.work-budget.json` left over from a different, aborted run is recognised as stale (warn, exit 1) instead of silently throttling this run.
+
+   **Parallel opt-in (`MB_WORK_PARALLEL`, off by default).** Everything above is the single-run default — unchanged, byte-identical. Driving **several concurrent `/mb work` runs from one host session** (intra-plan waves, or one plan per git worktree — see *Parallel runs* below) requires exporting `MB_WORK_PARALLEL=1` first, which switches `mb-work-state.sh`/`mb-work-budget.sh` from the legacy singleton files (`.work-state.json` / `.work-budget.json`) to **per-run slots**: `<bank>/.work-state/<run_id>.json` and `<bank>/.work-budget/<run_id>.json`. With the env var set:
+
+   ```bash
+   export MB_WORK_PARALLEL=1
+   RUN_ID=$(bash "$SKILL_DIR"/scripts/mb-work-state.sh new-run-id)
+   bash "$SKILL_DIR"/scripts/mb-work-state.sh init <source> <first_item_no> --run-id "$RUN_ID" \
+     --source-path <source_path> --source-topic <source_topic> --max-cycles <resolved_max_cycles> --mb <bank>
+   ```
+
+   `mb-work-state.sh new-run-id` mints a fresh run id up front (prints it, writes nothing) so it can be threaded into `init` from the start. `init` then claims `<source>` for `"$RUN_ID"` in a source→run index: if another **live** (`phase != done`) run already claims that same source, `init` refuses with **exit 4** (`source '<source>' already claimed by run <id>; pass --takeover to override`) — halt the loop for this run (pick a different pending item, or a different source) unless the orchestrator deliberately wants to steal a stale/abandoned claim, in which case pass `--takeover` to force the claim. Thread the same `--run-id "$RUN_ID"` to every subsequent `mb-work-state.sh`, `mb-work-budget.sh`, and `mb-work-checkbox.sh` call for this run — that is what keeps its state, budget, and checkbox-flip gate isolated from any other concurrently running run.
+
+5. **For each pending item** (iterate over the JSON Lines output):
+
+   The stage body is read from the markers in the source file. For `kind=task` items, read between `<!-- mb-task:N -->` markers. For `kind=stage` items, read between `<!-- mb-stage:N -->` markers.
+
+   For every item after the first, re-arm the per-item loop-state (this resets the item's `cycle` counter and `phase` back to `in-progress` while keeping the same session `run_id`):
+
+   ```bash
+   bash "$SKILL_DIR"/scripts/mb-work-state.sh init <source> <item_no> --run-id "$RUN_ID" \
+     --source-path <source_path> --source-topic <source_topic> --max-cycles <resolved_max_cycles> --mb <bank>
+   ```
+
+   ### 5a0. Eval-first gate (red MANDATORY — before implement)
+
+   For **any task carrying an Eval declaration** — gated or not — **materialise the eval code before implement**; writing the failing test is D-05's first step of the task, not an afterthought. REQ-008 keys this gate on the declaration, not on gatedness: a non-gated docs/config task whose structural Eval is a real file/section/linter check runs the same red→green cycle. Only a validated non-gated **waiver** (`**Eval:** none — waiver: <reason>`) skips it. Then record the observed red through the authoritative writer (never by editing the state JSON directly — direct JSON editing is forbidden):
+
+   ```bash
+   # write the exact Eval command to a file, then:
+   bash "$SKILL_DIR"/scripts/mb-work-state.sh eval-red --cmd-file <path> --output-re '<ERE>' [--expected-exit <n>] --run-id "$RUN_ID" --mb <bank>
+   ```
+
+   The **helper itself** runs the byte-identical `--cmd-file` from the repo root and matches the C1 anchors (`--output-re`, plus `--expected-exit` when declared) against the *actual* observed output and exit — you do not pass a verdict, exit, or match flag; a green/red cannot be spoofed through the CLI. `eval-red` exits:
+
+   - **0** — the declared red was actually observed → proceed to implement.
+   - **1** — a **foreign failure** (actual output does not match `--output-re`, or actual exit ≠ `--expected-exit`) or an already-green command. This is a **FAIL that blocks implement** — a fake or absent red is not a contract. **No flag reopens it:** `eval-red` has no `--force`/`--override` and rejects any unknown argument with exit 2, and an item whose declared, non-waived Eval has no proven red→green is refused by `mb-work-state.sh done` with **exit 5** — so the item cannot be closed through the sanctioned sequence either. The two real ways forward are to make the declared red actually appear (fix the anchor, or the command, or the code) or — for a non-gated task only — to waive the Eval in the spec. A user instruction to press on regardless grants no mechanical exemption; record it in `progress.md` through `mb-work-progress-append.sh` and expect the item to stay open.
+   - **2** — usage / broken state / uncompilable ERE.
+
+   **Waiver only for non-gated.** A task with no runtime surface may waive the behavioural red (`**Eval:** none — waiver: <reason>`) **only when it is non-gated**; a gated task must carry a real red. The verify step (5c) later runs `eval-green`, which reruns the byte-identical command and demands an actual green.
+
+   ### 5a0b. Quality DoD — render once, give it to all three (C6)
+
+   Render the criterion the work will be judged by ONCE, before dispatching anyone, and keep the path: implementer, reviewer and judge must hold the same bytes, and a second render is how that stops being true.
+
+   ```bash
+   QUALITY_DOD=<bank>/tmp/quality-dod-<item_no>.md
+   bash "$SKILL_DIR"/scripts/mb-quality-dod.sh --spec <bank>/specs/<topic> --mb <bank> > "$QUALITY_DOD"
+   ```
+
+   Exit 1 = a rule source the spec declares does not exist — **halt the item**; a review judged against rules nobody selected is worse than one that never ran (REQ-017). Spec-less (plan) runs set `QUALITY_DOD=""` and skip this step. Inline the file's contents verbatim into the implementer prompt below, into `§5d` via `--quality-dod "$QUALITY_DOD"`, and into the judge prompt in `§5e`. Never edit or reflow it.
+
+   ### 5a0c. Graph context — build once per item, push into 5a, 5d and 5e
+
+   Agents rarely query the graph on their own, so hand them the answer. Run, for the item's `Files:` (≤40 lines in total, paste under a `## Graph` heading in the prompt):
+
+   ```bash
+   { bash "$SKILL_DIR"/scripts/mb-graph.sh status | head -1
+     for f in <Files: paths>; do
+       bash "$SKILL_DIR"/scripts/mb-graph.sh tests "$f" | jq -r '.test_files[]? | "test: " + .'
+       bash "$SKILL_DIR"/scripts/mb-graph.sh impact "$f" | jq -r '.dependents[]? | "dependent: " + .src'
+     done | sort -u; } 2>/dev/null | head -40
+   ```
+
+   Fail open: when the status line is not `fresh`, the graph is stale or absent, or a command fails, paste the single line `Graph: stale or absent — use Grep/Glob/Read` instead and go on. Reviewers and the judge get the same block the implementer got.
+
+   ### 5a1. Contract task: two dispatches, then the red gate
+
+   A task carrying `**Layer:** contract` is ONE checkbox but TWO implementer dispatches: the registry it declares has to be frozen before the checkers that satisfy it exist, and the current loop dispatches an implementer once per item.
+
+   1. **Dispatch A (declare).** Prompt composed exactly as 5a, plus: write NO product or checker files; print `MB_CONTRACT_CHECKERS_JSON={"checkers":[…]}` as its own block **before** the final `MB_WORK_RESULT_JSON=` line, then stop. The envelope stays the last non-empty block, so S5's report contract is untouched.
+   2. **Orchestrator.** Validate that JSON, write the fenced ```json Contract-checkers``` block into the task body — the bank is written by the orchestrator, never by the agent — and record `bash "$SKILL_DIR"/scripts/mb-work-state.sh step contract_declared --run-id "$RUN_ID" --mb <bank>`.
+   3. **Dispatch B (build).** Hand back the frozen registry; the implementer writes only the checkers and their unit tests.
+   4. **Red gate.** Once the checker unit tests are green: `bash "$SKILL_DIR"/scripts/mb-contract-gate.sh red --spec <spec-dir> --mb <bank>`. Exit 0 → proceed to business implementation. Exit 1 (`fake_red` — a checker green before the code exists; `foreign_failure` — it failed for some other reason) or exit 2 → **local hard stop**: item stays open, checkbox is not flipped, no business implement dispatch. Do **not** route this into the ADaPT fork (5c1): `complexity_escalation` describes a task's complexity, not a checker that proves nothing, and routing it would defer an immediate refusal until the cycles run out. A requirement no checker can observe is the same hard stop, class "spec defect".
+
+   **Resume.** A schema-valid registry in the task body **and** a `contract_declared` step → skip A, resume at B. Missing either → repeat A. Business implementation stays blocked until `red` exits 0.
+
+   ### 5a. Implement step (only if workflow includes `implement`)
+
+   Dispatch the resolved role agent by name. The installer composes `agents/mb-engineering-core.md` and `agents/mb-tooling-core.md` (its `compose:` list) above the role text, so the prompt holds only the item data — never re-type agent files into it. Pass the JSON Line's `model` (unless `inherit`) and `thinking` only when the host allows those overrides for that role; Claude Code takes reasoning depth from `effort:` frontmatter.
+   For static Codex roles, compare the loaded model/effort with the resolved values before dispatch. If they differ, render and reload through the supported host mechanism; if unavailable, report the mismatch and stop that dispatch.
+   Never silently substitute model or reasoning level; this also applies to verifier, reviewer, judge and fix dispatches below.
+   Other hosts dispatch by name with their own tool (SKILL.md § Invocation); without named dispatch, read the role file and its `compose:` partials.
+   Append the `## Graph` block from §5a0c to the prompt.
+   When the JSON Line has `discipline: "strict"` (model in `pipeline.yaml` `discipline.strict_models`), append the body of `"$SKILL_DIR"/agents/mb-discipline-strict.md` to the prompt; `calm` adds nothing.
+   When step 1 gave `self_verify: true` or the item has `verify: false`, append: `Self-check before you report: run the targeted tests for the files you changed and walk every DoD line; no verifier runs immediately after this item; final verification follows the selected cadence.`
+   **Project TDD (`quality.tdd`, AGR-076):** read `bash "$SKILL_DIR"/scripts/mb-profile.sh quality --json --mb=<bank>` once per run and append the TDD line for `.quality.tdd` and the run's tier from `references/work-reference.md` § Project quality settings (`on`, and `small+` above the small tier, append nothing).
+
+   **Do NOT edit DoD checkboxes** (`⬜`/`[ ]` → `✅`/`[x]`); the loop flips them deterministically via `mb-work-checkbox.sh` only after the selected completion gates — append this line verbatim to the dispatched prompt so the implementer never self-marks DoD items done.
+
+   ```
+   Task(
+     description="mb-work item <N>: <heading>",
+     subagent_type="<json.agent>",
+      prompt="Skill path: <SKILL_DIR>\nPlan: <plan path>\nStage: <heading>\nBaseline ref: <state baseline_ref>\n\n<full item body>\n\nDo NOT edit DoD checkboxes (⬜/[ ] → ✅/[x]); the loop flips them deterministically via mb-work-checkbox.sh only after the selected completion gates.\n\nLinked context: <if any>",
+      model="<json.model>",
+   )
+   ```
+
+   ### 5b. Protected-path check (after every implement/fix dispatch)
+
+   After an implement/fix Task returns, gather the list of files it touched. Run `bash "$SKILL_DIR"/scripts/mb-work-protected-check.sh <files...> --mb <bank>`:
+
+   - Exit 0 → proceed.
+   - Exit 1 → if `--allow-protected` was passed, log a warning and continue; otherwise **halt** the loop and report which file violated which glob.
+
+   ### 5b1. Eval and contract evidence (independent of verifier cadence)
+
+   **Eval-green first (for any task that recorded an eval-red in 5a0, including `verify: false` and cadence `off`).** Rerun the byte-identical command through the authoritative writer and require an actual green before spending verifier/reviewer cycles:
+
+   ```bash
+   bash "$SKILL_DIR"/scripts/mb-work-state.sh eval-green --cmd-file <path> --run-id "$RUN_ID" --mb <bank>
+   ```
+
+   The helper reruns the saved (byte-identical) `--cmd-file` and exits 0 **only** on an actual exit 0; a still-red command or a drift of `--cmd-file` vs the recorded `cmd` → exit 1, which **halts** the item (the implementation did not turn its own declared red green).
+
+   **Contract checkers (any spec whose contract task is closed).** Then `bash "$SKILL_DIR"/scripts/mb-contract-gate.sh verify --spec <spec-dir> --mb <bank>`. Exit 1 = verification FAIL, a checker is still red. Exit 2 = the red-evidence gate refused and **no checker ran**: a checker whose red was never observed, or whose registry command changed since it was, cannot be verified against. Both halt the item.
+
+   ### 5c. Verify step (only if workflow includes `verify` and the item has `verify: true`)
+
+   Cadence `plan`/`run`: the one verify item omits `--files` (whole baseline diff) and drops `Verify only item <N>` (`run` lists every plan as a `Source file:` line). Cadence `off`: once per run, `mb-work-progress-append.sh --text "verification skipped (cadence=off)"`.
+
+   Then dispatch the plan-verifier before code review when both are present. The verifier catches missing tests, incomplete DoD, broken traceability, and architecture drift before reviewer cycles are spent.
+
+   **Build the diff first — not a bare `git diff`.** Scope it to this run's own baseline and the item's touched files with `mb-work-diff.sh --run-id … --files …`:
+
+   ```bash
+   bash "$SKILL_DIR"/scripts/mb-work-diff.sh --run-id "$RUN_ID" --files "<item's touched files>" --mb <bank>
+   ```
+
+   The file list is the item's `Files:` line from its body **intersected with** files actually changed since baseline (get the changed-file set with `bash "$SKILL_DIR"/scripts/mb-work-diff.sh --run-id "$RUN_ID" --name-only --mb <bank>`). If the item declares no `Files:` line, fall back to the full baseline diff across every path — omit `--files` entirely: `bash "$SKILL_DIR"/scripts/mb-work-diff.sh --run-id "$RUN_ID" --mb <bank>`, which runs the **single-arg** `git diff <baseline>` form (baseline commit vs. working tree — never `<baseline>..HEAD`), so it sees both any commits made since baseline **and** this item's still-uncommitted edits, without requiring a commit; this loop does not authorize one. Hand the same list to the verifier as `Item files:` (comma-separated) — its targeted tests run on it, not on everything changed since a baseline that does not move between uncommitted items (I-246); omit the line when the item has no `Files:`. Scoping to `--run-id`'s own `baseline_ref` and `--files` is what keeps a co-running parallel run's edits from leaking into this item's judged diff.
+
+   ```
+   Task(
+     description="mb-work verify item <N>",
+     subagent_type="plan-verifier",
+     model="<json.step_models.verifier>",
+     prompt="Source file: <plan or spec path>\nSource kind: <plan|spec>\nBank path: <absolute bank>\nSkill path: <SKILL_DIR>\nVerify only item <N> — <heading>\nBaseline ref: <state baseline_ref>\nItem files: <the --files list, comma-separated>\nFinal item: <yes|no>\nSpec: <json.spec_path|none>\nPlan wrapper: <json.plan_path|none>\nQA cases: <bank>/qa/test_cases/<wrapper topic, else json.source_topic>/|none\nQA report: <newest <bank>/qa/runs/$RUN_ID-qa<n>/report.md|none>\nDiff:\n<output of mb-work-diff.sh above>"
+   )
+   ```
+
+   `<state baseline_ref>` is `baseline_ref` from `mb-work-state.sh status ${RUN_ID:+--run-id "$RUN_ID"} --mb <bank>`. `Final item: yes` only when the item has `final_verify: true`: the verifier runs targeted tests per item and the full suite once there (AGR-071).
+   - **Verdict PASS** → continue.
+   - **`NOTHING TO VERIFY`** (no REQ, DoD item or case in the source) halts the item.
+   - **Verdict FAIL** → record `mb-work-state.sh step verify_fail` and run the ADaPT check (5c1). Below `adapt.verify_fail_cycles` re-dispatch the implementer with the findings and verify again; at the threshold the fork opens; with ADaPT off or no fork, **halt** the loop. Under `plan`/`run` cadence the fail counts on each item the findings name (`references/adapt.md`). Surface findings. Do not spend reviewer cycles on a verifier-failing item unless the selected workflow explicitly omits `verify`.
+
+   ### 5c1. ADaPT fork (only when step 1's `adapt.enabled`; `--no-adapt` = today's halt)
+
+   The fork opens when the implementer report carries a `complexity_escalation` block (`python3 "$SKILL_DIR"/scripts/mb_work_adapt.py parse --file <report>`: exit 0 = block, 1 = none, 3 = invalid → treat as `BLOCKED`) or when `mb-work-state.sh adapt-check [<sub-item>] [--item-tokens N] --declared "<item Files csv>" --changed <name-only file|-> --run-id "$RUN_ID" --mb <bank>` reports `trigger: true` (reasons `verify_fail_cycles`, `review_cycles`, `judge_cycles`, `eval_not_green`, `item_token_budget`, `scope_violation`; changed list from `mb-work-diff.sh --name-only`). After each phase event record `mb-work-state.sh step eval_fail|review_cycle|judge_cycle` (`@<sub-item>` suffix as for `verify_fail`) before adapt-check.
+   - **`--auto`:** `esc-open --bank <bank> --run-id "$RUN_ID" --item-id <item> --cycle <n> --mode autonomous --triggers <reasons csv> [--degraded <csv>]` → `decision` `auto_split`: dispatch `roles.planner` in decompose mode, then `mb-work-state.sh split <item> --subitems '<json>'` (sub-items run through the same steps, each closed with `sub-done <id>`), then `esc-resolve --bank <bank> --id <escalation_id> --resolution decompose`. `split` exit 6 (refused at `max_depth`): `esc-open` with the same flags plus `--split-refused` → `stub_continue` → `mb_work_adapt.py stub-backlog --bank <bank> --spec-topic <slug> --task-id <n> --reason <text> --flag <NAME> --capability <phrase>` before any code edit (exit 1 = halt: summary, no code), re-dispatch the implementer with the stub protocol (`MB-ADAPT-STUB backlog=<I-NNN> flag=<NAME> eval=<driver>` marker in the docstring, default-off flag, driver printing `MB-ADAPT-STUB-PATH: baseline|staged`), then `esc-resolve --bank <bank> --id <escalation_id> --resolution stub_continue --backlog-id <I-NNN>`.
+   - **HITL:** `esc-open --bank <bank> --run-id "$RUN_ID" --item-id <item> --cycle <n> --mode hitl --triggers <reasons csv>` → `fork_user`: offer continue / simplify / decompose / skip, then `esc-resolve --bank <bank> --id <escalation_id> --resolution <choice>` (`--backlog-id <I-NNN>` for skip). `decision: stop_run` (`adapt.cascade_stop` consecutive escalations) stops before the next dispatch with the recommendation to revise the whole spec. A clean `done` calls `esc-clean --bank <bank> --run-id "$RUN_ID" --item-id <item>`.
+   - **Mechanical gates:** the parent's `done` exits 6 while a sub-item is open, and a split past `adapt.max_depth` exits 6. When the diff carries `MB-ADAPT-STUB`, verify runs `mb_work_adapt.py verify-stub --repo . --diff-file <name-only file> --backlog <bank>/backlog.md`; exit 1 or 2 = FAIL. All esc-* / verify-stub / stub-backlog calls are `python3 "$SKILL_DIR"/scripts/mb_work_adapt.py <cmd>`.
+   - **Run summary:** `esc-summary --bank <bank> --run-id "$RUN_ID"` (escalations, corrections, open skips, stubs with backlog ids).
+
+   Procedure: `references/adapt.md` § "/mb work handling".
+
+   ### 5c2. QA (only when step 1 JSON has `qa` and the item has `qa: true`)
+
+   Runs at `qa.position`: `before_review` → right after a 5c PASS (after 5b1 when the item has `verify: false`); `after_review` → after the review/judge gate passes, before 5g. `QA_RUN="$RUN_ID-qa<n>"`, `<n>` = `qa_cycle` from `mb-work-state.sh status` (absent = 0). Medium/low bugs are listed in the item report and §6, never fixed here.
+   1. **Stand.** Run `qa.prepare` when non-empty; a non-zero exit **halts** with its output — an environment failure, not a bug, no cycle spent.
+   2. **Run.** Dispatch `mb-qa-runner` as `commands/qa.md` § run says, with `selection` = `@<topic>` (the plan's `topic:`) for QA from the declaration at cadence `stage` or `plan`, else `qa.selector`, `run_id = $QA_RUN`, `expected_build = $(git rev-parse HEAD)` (the loop does not commit, so `prepare` deploys the working tree). Any scenario BLOCKED or SKIP (report title) → **halt**: QA did not finish (dead or stale stand, missing precondition), an environment failure, never a fix cycle.
+   3. **Gate.** `bash "$SKILL_DIR"/scripts/mb-qa-bug.sh --mb <bank> gate --run "$QA_RUN" --gate '<qa.gate as JSON>'`. Exit 0 → continue the chain; exit 2 → halt (input error); exit 1 → `bash "$SKILL_DIR"/scripts/mb-work-state.sh qa-cycle --max <qa.max_cycles> ${RUN_ID:+--run-id "$RUN_ID"} --mb <bank>`:
+      - exit 0 → re-dispatch the implementer (5a prompt) with the full bodies of the blocking bugs (`mb-qa-bug.sh list --json --open --run "$QA_RUN"` names them; bodies in `<bank>/qa/bugs.md`), their evidence paths under `<bank>/qa/runs/$QA_RUN/`, and: "Regression test first when the defect is reachable from tests; never edit `<bank>/qa/`"; the regression test for a blocking bug carries `mb:case reg-<bug id lowercased>` in a comment. A fix diff touching `<bank>/qa/test_cases/` (other than `reg-*.md` written by `mb-qa-bug.sh`) → **halt**. Then 5b, 5b1, 5c, and back to 5c2.
+      - exit 3 → `qa.on_max_cycles`: `stop_for_human` halts; `continue_with_warning` needs explicit human confirmation before the item continues as WARN.
+
+   ### 5d. Review step (only if workflow includes `review`)
+
+   **Assemble the payload deterministically first — never a hand-rolled prompt.** Before dispatching any reviewer, build the review payload with the reviewer-2.0 orchestrator, which owns diff discovery, calibration examples, and touched-file test-cache resolution so the reviewer only has to judge one pre-assembled document (REQ-100):
+
+   ```bash
+   bash "$SKILL_DIR"/scripts/mb-rules-check.sh --files <touched-csv> --base HEAD --out json > <bank>/tmp/rules-check-<N>.json
+   bash "$SKILL_DIR"/scripts/mb-review.sh --emit-payload --plan <plan path> --item <N> --run-id "$RUN_ID" --mb <bank> \
+     ${QUALITY_DOD:+--quality-dod "$QUALITY_DOD"} --rules-check-json <bank>/tmp/rules-check-<N>.json
+   ```
+
+   Run the checker ONCE and reuse the same JSON for the reviewer and the judge (C6). `mb-review.sh` exits 1 without emitting a payload when that JSON carries a CRITICAL violation — code that already breaks the agreed rules does not get a review spent on it, and no reviewer is dispatched. Add `--source` for each present locator (`spec_path`, `plan_path`, the last QA report); it appends `## Sources`.
+
+   **Detecting touched-file test status — a single, unambiguous check:** the assembled payload contains a `## Auto-generated findings (MUST INCLUDE)` heading **if and only if** this item's touched-file tests were failing (`mb-review.sh` only emits that heading when its resolved `tests_pass` is exactly `false` — verified: its `## Prior evidence` section then also prints the literal line `tests_pass: False`). Concretely: `grep -q '^## Auto-generated findings' <payload>` (or, equivalently, `grep -q 'tests_pass: False' <payload>`) — record the result (e.g. `TESTS_FAILING=1` on a match) for the parsing step below. Absence of the heading means tests were passing, or no cached evidence existed for this run; treat both the same (do not pass `--require-tests-blocker`).
+
+   Give every reviewer the `## Graph` block from §5a0c (the same bytes the implementer got) next to the payload.
+
+   If the workflow has no `review_profile`, resolve the single reviewer agent with `mb-reviewer-resolve.sh` (it reads `roles.reviewer.agent` — e.g. this project's `codex-cli`, or the skill-default `mb-reviewer` fallback — and applies `override_if_skill_present`, e.g. routing to `superpowers:requesting-code-review` when that skill is installed). Dispatch **that resolved agent** (`model=<json.step_models.reviewer>`; ensemble aspect reviewers take the same unless `roles.<reviewer_x>.model` is set) with the assembled payload as its prompt — never a hard-coded `Task(mb-reviewer)` — and parse the verdict with `mb-work-review-parse.sh`.
+
+   If `review_profile: ensemble`, dispatch 3-5 aspect reviewers from `review_ensemble.reviewers` in parallel with fresh scoped context only: plan/spec, verifier report, diff, previous lead report. Reuse the **exact same** `mb-work-diff.sh --run-id "$RUN_ID" --files …` output built for 5c for every aspect reviewer — one diff computation, shared across the ensemble, so every reviewer judges the identical scoped changeset (consistency). Then dispatch `review_ensemble.lead_role` to synthesize one canonical report. The lead reviewer must verify previous-cycle issues first, deduplicate aspect findings, separate blocking issues from backlog candidates, and emit strict JSON. When step 1's JSON carries `review_lenses` (`mb-workflow.sh --lenses`, e.g. a `/mb team` track), dispatch only the reviewers whose `focus` it lists.
+
+   **Pre-wave codex health-check (only when a reviewer is external/cross-model):** before dispatching an external review wave — an aspect reviewer or the whole review step routed through the `codex` CLI — run `bash "$SKILL_DIR"/scripts/mb-work-codex-preflight.sh --json --mb <bank>` first. In-model-only review (no external reviewer configured for this run) never runs the preflight at all — it is skipped entirely, so no false SKIPPED note is ever written. If the preflight reports `available:false`, **or** the reviewer's own output later parses (via `--external`, below) as `verdict:"SKIPPED"` (the `codex-reviewer` subagent tripped its own preflight and returned `{"status":"SKIPPED"}`), do not let the judge close a governed item alone silently: write `cross-model review SKIPPED (<reason>)` into this item's stage report **and** append a `NOTE` entry to `<bank>/progress.md` — loud, never silent. Treat the gate as **degraded**, not failed — the in-model reviewer/judge (if any) may still complete the item on the remaining evidence, but the cross-model coverage that would have caught a cross-model-only class of issue simply did not run this cycle.
+
+   **Parsing mode — `--external` for cross-model reviewers:** when the resolved reviewer is external / cross-model (a reviewer dispatched through the `codex` CLI transport, e.g. the global `codex-reviewer` subagent), parse its output with `mb-work-review-parse.sh --external` instead of the strict default — it normalizes a real GPT reviewer's "APPROVED with issues" down to `CHANGES_REQUESTED` (recomputing counts from issues, never trusting self-reported ones), maps the codex-reviewer issue schema (`description`/`recommendation`/`info` severity/`line:null`), and passes a `{"status":"SKIPPED"}` payload straight through as `verdict:"SKIPPED"`. The in-model `mb-reviewer`, and the ensemble's `lead_role` (which always stays in-model even when its aspect reviewers are external), keep the strict parse — no `--external` there.
+
+   **`--require-tests-blocker` — the REQ-103 "cannot drop" safety net, BEFORE the severity gate:** append this flag to the `mb-work-review-parse.sh` call above whenever this item's touched-file tests were failing (the `## Auto-generated findings` fact captured above). If the normalized output still lacks a `category:"tests"` / `severity:"blocker"` issue — the reviewer dropped or downgraded it, or the cross-model review itself parsed as `SKIPPED` — the parser prepends the missing finding, forces `verdict:"CHANGES_REQUESTED"`, and logs a warning; a red test can never silently pass the gate through an omitted, softened, or skipped review. Idempotent (a tests/blocker already present is left untouched, never duplicated) and opt-in: omit the flag when touched-file tests were passing, and parsing stays byte-identical to today (REQ-105). This does not weaken the preflight-based SKIPPED handling above — the pre-wave health-check still fires its own loud stage-report/`progress.md` note regardless of this flag; `--require-tests-blocker` only changes what the *parsed* verdict becomes once tests are known to be failing.
+
+   If the parse exits non-zero (genuinely unparseable reviewer output, not a schema mismatch `--external` already tolerates), perform **exactly one** automatic retry before failing the step: re-dispatch the same reviewer once, appending the parser's stderr text to its prompt so the reviewer can self-correct its output, then re-parse. A second parse failure surfaces the raw reviewer output verbatim and halts the review step — never a second automatic retry.
+
+   - Reviewers report findings; the lead report feeds `judge` when configured, and judge blockers decide fixes.
+   - For workflows without `judge`, run `bash "$SKILL_DIR"/scripts/mb-work-severity-gate.sh --counts-stdin --workflow <selected-workflow> --mb <bank> < <normalized-report>`. Exit 0 proceeds to completion; exit 1 enters the bounded fix loop when selected, otherwise halts; exit 2 halts with an input error. Do not fix unrelated backlog findings.
+
+   ### 5e. Judge step (only if workflow includes `judge`)
+
+   Include the `## Graph` block from §5a0c in the judge prompt.
+
+   Dispatch `roles.judge` with `model=<json.step_models.judge>` (omit when `inherit`). Give it: plan/spec/DoD, verifier report, lead-review report, previous judge decision, diff, verification evidence, and the **verbatim contents of `"$QUALITY_DOD"`** — the same bytes §5a and §5d received; plus the payload's `## Sources` section verbatim, the same bytes the reviewer saw.
+
+   The judge returns strict JSON with `decision`:
+
+   - `GO` — acceptance criteria met; proceed to done.
+   - `GO_WITH_BACKLOG` — acceptance criteria met; register non-blocking `backlog_items` before done.
+   - `NO_GO` — only `blocking_issues` return to implementation.
+
+   When judge is configured, only its blocking issues trigger another fix cycle. Non-blocking findings become backlog.
+
+   ### 5f. Fix-cycle (only if workflow includes `fix`)
+
+   - Call `bash "$SKILL_DIR"/scripts/mb-work-state.sh cycle ${RUN_ID:+--run-id "$RUN_ID"} --mb <bank>` — this is the deterministic, crash-surviving cycle counter (it enforces `workflow.loop.max_cycles` / CLI `--max-cycles N`, resolved once at step 4, **not** the orchestrator's memory of how many fix-cycles have run):
+     - **exit 0** — cycle is still within `max_cycles`; proceed with the fix.
+     - **exit 3** — **cycle budget exhausted** ("cycle budget exhausted" on stderr). This is a hard stop **even under `--auto`**: do not silently re-dispatch another fix; fall through to the `on_max_cycles` handling below instead.
+   - Re-dispatch with judge `blocking_issues` when configured; otherwise use the normalized reviewer findings responsible for the failed severity/approval gate. Keep unrelated backlog findings out of the fix scope.
+   - Run protected-path check after the fix.
+   - Rerun the §5b1 evidence checks, then return to `workflow.loop.returns_to` (normally `verify`), then review/judge again.
+   - If cycle-exhausted (exit 3) and `on_max_cycles=judge_decides`, run judge once more: `GO_WITH_BACKLOG` may close, `NO_GO` stops for human.
+   - If cycle-exhausted (exit 3) and `on_max_cycles=stop_for_human`, halt and ask the user.
+   - If `on_max_cycles=continue_with_warning`, require explicit human confirmation before marking WARN; do not silently mark done.
+
+   ### 5g. Item done
+
+   Only after all steps in the selected workflow have passed for this item — for governed workflows, `GO` or `GO_WITH_BACKLOG` from judge is required, and backlog items must be registered before marking done — run this deterministic sequence (never hand-edit the checkboxes yourself):
+
+   ```bash
+   bash "$SKILL_DIR"/scripts/mb-work-state.sh done ${RUN_ID:+--run-id "$RUN_ID"} --mb <bank>
+   bash "$SKILL_DIR"/scripts/mb-work-checkbox.sh flip <source_path> <item_no> ${RUN_ID:+--run-id "$RUN_ID"} --mb <bank>
+   ```
+
+   The `${RUN_ID:+--run-id "$RUN_ID"}` form is required, not decorative. Under `MB_WORK_PARALLEL` the state lives in the per-run slot `<bank>/.work-state/<run_id>.json`, so a bare `done --mb <bank>` reads the singleton, finds nothing and exits 2 (`no active work-state`) — the run can be started but never completed through this sequence. With `RUN_ID` unset (the single-run default) the expansion is empty and the commands are byte-identical to the plain form.
+
+   `mb-work-state.sh done` **refuses with exit 5** when the item's declared, non-waived `**Eval:**` has no proven red→green transition in this run's state (no eval record, an unverifiable proof, no observed red, or `green_exit != 0`), and equally when the locator fields resolve to a real tasks.md that has no such item. That refusal is the gate working: re-run `eval-red`/`eval-green` for the item rather than routing around it. A task declaring `Eval: none` (an explicit waiver) and a source with no declaration surface at all stay ungated. On success it sets `phase: "done"` for the current `item_no` — the completion gate `mb-work-checkbox.sh flip` requires before it will touch the source file's DoD bullets. `flip` then converts that item's `⬜`/`[ ]` DoD bullets to `✅`/`[x]`, scoped to its `<!-- mb-stage:N -->` / `<!-- mb-task:N -->` marker block only. **A refused flip (exit 1) means the gate did not truly pass** — treat it as a bug in the loop (state/item mismatch), not as something to work around by editing the file directly.
+
+   Workflows without a `judge` step (e.g. `medium`) still route through this exact sequence: `mb-work-state.sh done` is called once `verify` reports PASS — or once implement returns, on an item with `verify: false` — so the flip stays fully deterministic even without a judge gate.
+
+   **Graph refresh (bounded, fail-open — I-133).** Immediately after `flip`, refresh the code graph through the single-consumer catch-up CLI so it does not silently drift when the opt-in git hook (`hooks/git/post-commit-codegraph.sh`) is not installed. Because this lives right after `flip`, both governed workflows and `judge`-less workflows like `medium` reach it — every path that flips a checkbox also refreshes the graph:
+
+   ```bash
+   GRAPH="<bank>/codebase/graph.json"
+   [ -f "$GRAPH" ] && python3 "$SKILL_DIR"/scripts/mb-graph-query.py catchup \
+     --graph "$GRAPH" --src-root <repo> --json >/dev/null 2>&1 || true
+   # fail-open: never block or fail the item loop on graph refresh
+   ```
+
+   All guards live INSIDE the CLI — never reimplement them inline and **never spawn `mb-codegraph.py` in the background or take ad-hoc locks**: existing-graph-only (first build stays manual — Stage 1 `/mb map` / Stage 6 `/mb graph --apply`), one consumer via the non-blocking `codebase/.graph.lock` flock, hard budget `MB_GRAPH_CATCHUP_BUDGET` (default 30 s, process-group kill), cooldown after a failed attempt, opt-in layer preservation, kill-switch `MB_GRAPH_AUTOUPDATE=off`. The call is synchronous but bounded; a `locked`/`cooldown`/`timed_out` result is fine — the next query or SessionEnd catches up.
+
+   - Without `--auto` or existing whole-plan authorization: confirm before moving to the next item.
+   - With `--auto`: continue to the next item unless one of the hard stops (below) fired.
+
+6. **End-of-run summary.** When all requested items are processed, summarise: workflow used, items attempted, items PASS / WARN / FAIL, files touched, total budget spent, verifier verdicts, review cycles used; with QA on: QA runs, QA cycles used, bugs opened/fixed/left open by severity, and the `qa/runs/<id>/report.md` paths. For an OpenSpec change target, also run `bash "$SKILL_DIR"/scripts/mb-openspec.sh export <topic> --mb <bank>` (dry-run diff only) and show it; ask the user before any `export <topic> --mb <bank> --write`. Run `bash "$SKILL_DIR"/scripts/mb-work-budget.sh clear ${RUN_ID:+--run-id "$RUN_ID"} --mb <bank>` and `bash "$SKILL_DIR"/scripts/mb-work-state.sh clear ${RUN_ID:+--run-id "$RUN_ID"} --mb <bank>` to remove the budget and loop-state — the same run-id threading as `done`/`flip`, so a parallel run clears its own slot rather than the singleton.
+
+## Concurrent core-file writes
+
+Two core files are written during a run — under concurrent (parallel) runs each has exactly one writer discipline, never a free-form prose edit:
+
+- **`progress.md` appends** go through the locked, atomic, append-only helper — **required** under `MB_WORK_PARALLEL` (recommended always, even single-run, since it is safe with no contention):
+
+  ```bash
+  bash "$SKILL_DIR"/scripts/mb-work-progress-append.sh --text "<entry>" --mb <bank>
+  ```
+
+  It serializes concurrent writers behind an owner-token lock, builds the new content in a temp file, and atomically `mv`s it over `progress.md` — no writer ever sees, or produces, a partial/interleaved file. Fail-safe: a lock it cannot acquire in time (or any write error) degrades to a stderr warning and exit 0 — it never wedges the loop, and it never rewrites or removes existing content (append-only).
+- **`checklist.md` / DoD bullets** are flipped **only** by `mb-work-checkbox.sh flip` (reaffirming I-093) — never a hand-edit, and never any other script. This is what keeps two concurrent runs from racing on the same checkbox: `flip` is gated on the run's own `.work-state` slot reporting `phase == "done"` for that exact item before it touches a byte of the source file.
+
+**Durable vs. ephemeral progress signal:** see `references/work-loop-reference.md` § Durable vs. ephemeral progress.
+
+## Resume after interruption
+
+`.work-state.json` is the durable source of truth for "is this item actually done", surviving compaction and abort — checkbox appearance in the plan/spec is not. Before resolving items on a fresh invocation (a new session picking the same target back up):
+
+```bash
+bash "$SKILL_DIR"/scripts/mb-work-state.sh status --mb <bank>
+```
+
+- Empty `{}` (no state, or state cleared by a prior clean end-of-run) — start fresh from step 3.
+- `phase: "in-progress"` for the item currently at `item_no` — this item is **mid-flight**: do **not** treat it as done even if its DoD checkboxes look flipped in the source file. The loop flips checkboxes deterministically only after judge-GO (`mb-work-state.sh done`, wired in a later stage) — `phase` in `.work-state.json`, not checkbox appearance, is the source of truth. Resume by re-entering the loop for that item at the next unresolved step (inspect `steps[]`), or, if in doubt, safely restart from `implement` for that item.
+- `phase: "done"` — the item completed cleanly; proceed to the next pending item.
+
+**Parallel runs.** Under `MB_WORK_PARALLEL=1`, `mb-work-state.sh status` (no `--run-id`) only ever sees the singleton path — to enumerate every **live parallel run** (each per-run slot under `<bank>/.work-state/*.json`, plus the singleton if present), use:
+
+`bash "$SKILL_DIR"/scripts/mb-work-state.sh status --all` (alias: `list`). This prints a JSON array of every run's state (run_id, source, item_no, phase, …), so a resuming session can tell which sources are still claimed by a live (`phase != done`) run before minting its own `run_id` and calling `init`.
+
+## Hard stops for `--auto`
+
+The autopilot continues without per-item prompts **except** when:
+
+| Trigger | Surfaced via | Halt? |
+|---------|--------------|-------|
+| `max_cycles` reached (cycle-exhausted) | `mb-work-state.sh cycle` exit 3 at step 5f + `on_max_cycles` handling | yes |
+| QA environment failure or QA cycles spent | step 5c2 (`qa.prepare` non-zero, any scenario BLOCKED or SKIP, `qa-cycle` exit 3) | yes |
+| `plan-verifier` returns FAIL | step 5c | yes |
+| `Write` / `Edit` attempt at a `protected_paths` glob without `--allow-protected` | step 5b (`mb-work-protected-check.sh`) | yes |
+| `--budget` exhausted | `mb-work-budget.sh check` exit 2 after Task | yes |
+| `sprint_context_guard.hard_stop_tokens` reached (190k default) | manual observation; halt and ask user to compact | yes |
+| `cross-model review SKIPPED` under `--auto` (`mb-work-codex-preflight.sh` reports `available:false`, or the reviewer parses as `verdict:"SKIPPED"`) | step 5d preamble | yes — a skipped cross-model gate requires explicit user confirmation before the loop proceeds, even under `--auto` |
+| Claim refused (exit 4) — `mb-work-state.sh init --run-id` under `MB_WORK_PARALLEL` finds `<source>` already claimed by another live run | step 4 (`mb-work-state.sh init`) | yes — stop this run and pick a different pending item/source, or pass `--takeover` to steal a stale/abandoned claim |
+| Active FREEZE on the cross-session board (`<bank>/COORDINATION.md` — the resolved bank, local **or** registered-global **or** legacy; never a hardcoded `.memory-bank/`) covers files of the current item, or an unACKed HANDOVER targets its scope | `mb-coord.sh active` at item start (board checkpoint; full protocol: `references/coordination.md`) | yes — wait for the lifting entry or escalate on the board |

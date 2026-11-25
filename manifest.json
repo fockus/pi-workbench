@@ -1,0 +1,3420 @@
+{
+  "format": 1,
+  "snapshot_date": "2026-11-25",
+  "core": {
+    "name": "@earendil-works/pi-coding-agent",
+    "version": "1.5.0"
+  },
+  "plugins": {
+    "@aliou/pi-processes": "0.13.3",
+    "@juicesharp/rpiv-web-tools": "2.15.0",
+    "@tintinweb/pi-subagents": "0.23.0",
+    "@tintinweb/pi-tasks": "0.9.1",
+    "pi-condense": "2.13.1",
+    "pi-gitnexus": "0.6.4",
+    "pi-inspect": "0.6.0",
+    "pi-interactive-shell": "0.18.0",
+    "pi-lens": "4.4.8",
+    "pi-schedule-prompt": "0.4.1",
+    "pi-supervisor": "0.5.0"
+  },
+  "loaded_counts": {
+    "skills": 228,
+    "extensions": 15,
+    "prompts": 39
+  },
+  "skills": [
+    {
+      "name": "memory-bank",
+      "path": "agent/skills/memory-bank/SKILL.md",
+      "source": "https://github.com/fockus/skill-memory-bank.git",
+      "source_revision": "e62fdcf438c7ebc1f2e6de5b63791da6f26ec238",
+      "sha256": "6b360107be3c548f695a19f76ad6dfa009329526634df83129fe2c3b5c9d8bfe",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/fockus/skill-memory-bank/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/memory-bank/LICENSE",
+          "sha256": "6efa85e896bc02d37c4152933fa8b6870b3525c6c1d3661d1b5d1a2675e93e9d"
+        }
+      ]
+    },
+    {
+      "name": "code-review-review-local-changes",
+      "path": "agent/skills/code-review-review-local-changes/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "c3c700c1627ae315f2cfb3ce0e64fd2493da535a4e20acc516337c7a7b54e416",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/code-review-review-local-changes/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "code-review-review-pr",
+      "path": "agent/skills/code-review-review-pr/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "6e9891eddc8d8908d49a86e504985025f3218c035d25ce7696fc14883bd9de5e",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/code-review-review-pr/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "customaize-agent-agent-evaluation",
+      "path": "agent/skills/customaize-agent-agent-evaluation/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "4189d1b51ceaa8b7c7e691efd242636bc622823d94cff37fd0fde73999b9ae61",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/customaize-agent-agent-evaluation/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "customaize-agent-apply-anthropic-skill-best-practices",
+      "path": "agent/skills/customaize-agent-apply-anthropic-skill-best-practices/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "e1a18ea007331b70659fbcab995108d53fb2d280f7c77ec853d531d118b12f30",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/customaize-agent-apply-anthropic-skill-best-practices/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "customaize-agent-context-engineering",
+      "path": "agent/skills/customaize-agent-context-engineering/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "cfefdf264897e7250a418cee2f758d0a6bf1ca2c3f1253b4fe61abcae58ef4a2",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/customaize-agent-context-engineering/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "customaize-agent-create-command",
+      "path": "agent/skills/customaize-agent-create-command/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "dab8c64a2603d2e94a7ee049d07fe3401863b369ce82a28089dd13c132b2888e",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/customaize-agent-create-command/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "customaize-agent-create-hook",
+      "path": "agent/skills/customaize-agent-create-hook/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "b5bdcead4b8445b2da9e61cd0f4d5d849b04e93f9577888c33e3f59cf331ede1",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/customaize-agent-create-hook/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "customaize-agent-create-rule",
+      "path": "agent/skills/customaize-agent-create-rule/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "3f544ade3fe6522794ea3e7939e51393efda3582c6357a90a0d95f17d763381f",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/customaize-agent-create-rule/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "customaize-agent-create-skill",
+      "path": "agent/skills/customaize-agent-create-skill/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "033a0c7fbc16a7f1c3ce404360880424b899c98c6e441ee87efc8c141810d8fc",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/customaize-agent-create-skill/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "customaize-agent-prompt-engineering",
+      "path": "agent/skills/customaize-agent-prompt-engineering/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "2a76eb4ecd8e928812b11dcd3b65bad08e4383d521bdeb543dc911d66fb603f7",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/customaize-agent-prompt-engineering/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "customaize-agent-test-prompt",
+      "path": "agent/skills/customaize-agent-test-prompt/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "5f5b204bd8be788a84d35df9b115895f380fad64db848f660bacae2cfc8550da",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/customaize-agent-test-prompt/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "customaize-agent-test-skill",
+      "path": "agent/skills/customaize-agent-test-skill/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "69a7d87d8b50ec1f5281b54ca3e9f7a17176fd3614d05daf92049783b7684bf4",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/customaize-agent-test-skill/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "customaize-agent-thought-based-reasoning",
+      "path": "agent/skills/customaize-agent-thought-based-reasoning/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "6b4a912e8592e8c561e5b30dcb57e31d931ba154548f81851f5c23db320ab56e",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/customaize-agent-thought-based-reasoning/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "ddd-setup-code-formating",
+      "path": "agent/skills/ddd-setup-code-formating/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "cae66e28d72ff30998d3809b660f0d435c0c03ee065702ab77d3186c6b28a23c",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/ddd-setup-code-formating/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "docs-update-docs",
+      "path": "agent/skills/docs-update-docs/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "46537648a9519a2aaf9a6af77ae020f4a2575a0d265eb944d7c42db517343357",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/docs-update-docs/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "docs-write-concisely",
+      "path": "agent/skills/docs-write-concisely/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "3aa1509b7fad9f80b444972b399673c070d772ab1778b794fcb6b1aec5a8dc80",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/docs-write-concisely/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "fpf-actualize",
+      "path": "agent/skills/fpf-actualize/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "891de6481027237713b902029c94085fb22905dc1d7ede3e3f2d8adb7a1551c0",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/fpf-actualize/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "fpf-decay",
+      "path": "agent/skills/fpf-decay/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "77a0e193489cebdf5f8dc272f0c62568066fafdc10a103ea28870fb8652eeb4c",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/fpf-decay/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "fpf-propose-hypotheses",
+      "path": "agent/skills/fpf-propose-hypotheses/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "5a03815eed07e1b05553fff70583febbc56e9892d729a9843d1f4a699d0ee1a5",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/fpf-propose-hypotheses/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "fpf-query",
+      "path": "agent/skills/fpf-query/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "882babd1f67dc28c9899bcb71b0e6cf0b9361b73053c3ca6b5baef316211610b",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/fpf-query/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "fpf-reset",
+      "path": "agent/skills/fpf-reset/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "69c801bd1da2b02f95a55002e4857cb242b116225fa18b184567ac787e8bea22",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/fpf-reset/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "fpf-status",
+      "path": "agent/skills/fpf-status/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "fbc3129ad229b2caa7421b8667fe723c9940f026b0375abe65cf3688eca2b1e1",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/fpf-status/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "git-analyze-issue",
+      "path": "agent/skills/git-analyze-issue/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "99e341bd9b902c28bb486cc1df1a3ec6454cf2e19555d037bd91248e460ef448",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/git-analyze-issue/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "git-attach-review-to-pr",
+      "path": "agent/skills/git-attach-review-to-pr/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "0138469a7bd0163f37787c3e4acb6f325cd30ec61ed5a1d097220e0b27aed5a9",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/git-attach-review-to-pr/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "git-commit",
+      "path": "agent/skills/git-commit/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "980186080ef766fb5f2ee5e8359eac3e70980a2e67f7868f1dffbc3d562104e2",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/git-commit/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "git-compare-worktrees",
+      "path": "agent/skills/git-compare-worktrees/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "98a9c80cd0066a09620675e8443ecd9387fcc8df0406c57add906dc3625bd28e",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/git-compare-worktrees/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "git-create-pr",
+      "path": "agent/skills/git-create-pr/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "74d7a430b070c53c58a1a4246494a48558bbf4507ea6044e9028b1769996b381",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/git-create-pr/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "git-create-worktree",
+      "path": "agent/skills/git-create-worktree/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "bf1f73372358412c2dcf1c94a47dfe3f4dc4a8c4b5942f9b321a736b9f018a6b",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/git-create-worktree/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "git-load-issues",
+      "path": "agent/skills/git-load-issues/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "255c8d30ae9c6c1eb4d904ede9e320f1aa87dc79ace28ea08d580b7ca76d08ba",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/git-load-issues/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "git-merge-worktree",
+      "path": "agent/skills/git-merge-worktree/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "a73ecdd709066314a9ccb03416eaca0bde8ea24aac8eaf264584364f9d9fcb61",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/git-merge-worktree/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "git-notes",
+      "path": "agent/skills/git-notes/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "70eb256989df22b5b2b29e38c512fb6ca5d354574ddbc781ddf32bf8f09683b0",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/git-notes/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "git-worktrees",
+      "path": "agent/skills/git-worktrees/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "bf16788ed5be718767e7620b9b38497c4274e89d5f6eaa20224f5584b0bc316a",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/git-worktrees/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "kaizen-analyse",
+      "path": "agent/skills/kaizen-analyse/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "c4a05899cc862c5fb08fcc8c6323ee2b258318c74cebe40d0515ade5a6a1a2fb",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/kaizen-analyse/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "kaizen-analyse-problem",
+      "path": "agent/skills/kaizen-analyse-problem/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "fbf942a0f48353317c388e3ea0ed811148f5f808410b8e2841f0c2f15f1eb1dd",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/kaizen-analyse-problem/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "kaizen-cause-and-effect",
+      "path": "agent/skills/kaizen-cause-and-effect/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "c2354400a71b042faf8eae97b2f4db8865cfba5a878a543e954498d6d8f12e9d",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/kaizen-cause-and-effect/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "kaizen-kaizen",
+      "path": "agent/skills/kaizen-kaizen/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "a5951decbe1c4a401af892c92cf96addb87325d1d5b6194ad001b25471bf7089",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/kaizen-kaizen/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "kaizen-plan-do-check-act",
+      "path": "agent/skills/kaizen-plan-do-check-act/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "45aacd885b9979f10dbd6bc0c4650dfa3cc925de0d50990348d389dde8e7cfb7",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/kaizen-plan-do-check-act/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "kaizen-root-cause-tracing",
+      "path": "agent/skills/kaizen-root-cause-tracing/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "4afeb6be381beeb1d35cb942bf789a308e50da23415c406ff5f04557e6c1b59a",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/kaizen-root-cause-tracing/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "kaizen-why",
+      "path": "agent/skills/kaizen-why/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "fe1be463fbb63c902bcaf6126f99f50d69cc34a786453c22a3deabf5788daf36",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/kaizen-why/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "llm-wiki",
+      "path": "agent/skills/llm-wiki/SKILL.md",
+      "source": "https://github.com/fockus/skill-llm-wiki",
+      "source_revision": "",
+      "sha256": "9353bc1c880c39227a3b0cb4704b77a6e9625365affcdf5dbee37a5200ea0daf",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/fockus/skill-llm-wiki/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/llm-wiki/LICENSE",
+          "sha256": "6efa85e896bc02d37c4152933fa8b6870b3525c6c1d3661d1b5d1a2675e93e9d"
+        }
+      ]
+    },
+    {
+      "name": "mcp-build-mcp",
+      "path": "agent/skills/mcp-build-mcp/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "15048b69084567cbc50ecbf5f4a74e2f5170e36e226139b22ed77c2f18cd787b",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/mcp-build-mcp/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "mcp-setup-arxiv-mcp",
+      "path": "agent/skills/mcp-setup-arxiv-mcp/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "d619055389530b4b384f0eace4314af182d23416cd43131761c182eca0ce9c8c",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/mcp-setup-arxiv-mcp/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "mcp-setup-codemap-cli",
+      "path": "agent/skills/mcp-setup-codemap-cli/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "4b7f15a7497a9b792dbcc204c074d1fbf0ec8050085d85d185d812898ec05b94",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/mcp-setup-codemap-cli/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "mcp-setup-context7-mcp",
+      "path": "agent/skills/mcp-setup-context7-mcp/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "1c76ba0be0ae0d0e1cfbf450812f6e7b770b4aaf41d3a14efd9fbbb01370b9f6",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/mcp-setup-context7-mcp/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "mcp-setup-serena-mcp",
+      "path": "agent/skills/mcp-setup-serena-mcp/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "9008e00b1d8b5a7a36e1685dcbdce8025346ba2a4292823a45beb2836755870a",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/mcp-setup-serena-mcp/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "reflexion-critique",
+      "path": "agent/skills/reflexion-critique/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "ac79258560611042c3d03a5f8592a3d262972b9a02ef9795924580976ba2832b",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/reflexion-critique/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "reflexion-memorize",
+      "path": "agent/skills/reflexion-memorize/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "6af4e4345972ea9c18d2326967e5a221606ead9b2ad3072c48c1214c5c60f66a",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/reflexion-memorize/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "reflexion-reflect",
+      "path": "agent/skills/reflexion-reflect/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "ae732b3bbf7767d96d8143163b1e1778d7e7d1c33da563467d07ea1485bbdbff",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/reflexion-reflect/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "sadd-do-and-judge",
+      "path": "agent/skills/sadd-do-and-judge/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "4d0a32f1cb234c6260af46a1660131eed980db88ffdd2de6e17c71f1a1002765",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/sadd-do-and-judge/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "sadd-do-competitively",
+      "path": "agent/skills/sadd-do-competitively/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "e5df24f85d9f9d49efadf347b03147c5576f146305b6597696594f6b21af660b",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/sadd-do-competitively/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "sadd-do-in-parallel",
+      "path": "agent/skills/sadd-do-in-parallel/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "bc5462bc6370ea66cef05f2b1f2354a2ac7c2384be71827aad4716c29c479573",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/sadd-do-in-parallel/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "sadd-do-in-steps",
+      "path": "agent/skills/sadd-do-in-steps/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "fe79e701bf64dcc199afb7acc38462951c102fda7d48123c786c62562fed8dd9",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/sadd-do-in-steps/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "sadd-judge",
+      "path": "agent/skills/sadd-judge/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "ade014d81342e4910f960ffcd94ba3bdc20eed2b0621dc914992bfd11f39a69d",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/sadd-judge/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "sadd-judge-with-debate",
+      "path": "agent/skills/sadd-judge-with-debate/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "49945f87303ced4a9a315598861e444725b020645f58cbcf963b27ab77698830",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/sadd-judge-with-debate/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "sadd-launch-sub-agent",
+      "path": "agent/skills/sadd-launch-sub-agent/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "7883a660f9bd0fab24129507257797e759814889a09c9060fdd435707c8875b8",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/sadd-launch-sub-agent/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "sadd-multi-agent-patterns",
+      "path": "agent/skills/sadd-multi-agent-patterns/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "8ff1d5bab1a8774c43e30170ad67a89e686a5da6aaba8927b67a784a5c89aa49",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/sadd-multi-agent-patterns/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "sadd-subagent-driven-development",
+      "path": "agent/skills/sadd-subagent-driven-development/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "74ffe573976b18f0dcef393aa370f970201358116fce6a4213e490cb1a23d964",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/sadd-subagent-driven-development/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "sadd-tree-of-thoughts",
+      "path": "agent/skills/sadd-tree-of-thoughts/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "2416c5eace78a212de6523943119fd336a7c38f20574730a3aacb3fe683f0108",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/sadd-tree-of-thoughts/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "sdd-add-task",
+      "path": "agent/skills/sdd-add-task/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "d0f05ef188eb73effe822b1e6371f3aa06182887e4cd91ceb08f1a7b01aeae59",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/sdd-add-task/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "sdd-brainstorm",
+      "path": "agent/skills/sdd-brainstorm/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "6693ee9f05020d9e66c52718bef9b09d7e1d53d32ed51d692609e6b4f33befbb",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/sdd-brainstorm/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "sdd-create-ideas",
+      "path": "agent/skills/sdd-create-ideas/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "4ad29042a2be5427ed9bf6b7ba666af372cd2a19d370b52f9445513d87c1be16",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/sdd-create-ideas/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "sdd-implement",
+      "path": "agent/skills/sdd-implement/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "2bd3c04cf18eeaf5e8250f65b820600a9ad6fb6d1a8f1ba5b719558030b099d7",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/sdd-implement/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "sdd-plan",
+      "path": "agent/skills/sdd-plan/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "a132e1131572ed155a481504f6530cef3a13dcd74a56509cd80d008acaf1f5f6",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/sdd-plan/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "tdd-fix-tests",
+      "path": "agent/skills/tdd-fix-tests/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "e3c7bc8efa4edae3b9d160262c5f440bf11e4d46d5e56c282de2796993e98090",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/tdd-fix-tests/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "tdd-test-driven-development",
+      "path": "agent/skills/tdd-test-driven-development/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "784eb54c60eb1109c079e99d004d64a9ac06711b8e8ecded36e279443dc7bdb6",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/tdd-test-driven-development/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "tdd-write-tests",
+      "path": "agent/skills/tdd-write-tests/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "0a9af4dd0f30378110a4e548f996f372216d334cf01009674f9598f9f635ef02",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/tdd-write-tests/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "tech-stack-add-typescript-best-practices",
+      "path": "agent/skills/tech-stack-add-typescript-best-practices/SKILL.md",
+      "source": "https://github.com/NeoLabHQ/context-engineering-kit.git",
+      "source_revision": "",
+      "sha256": "5b06bf01dc132c805053a840c88198572fbf2cd8956f8f68624df9f268059937",
+      "license": "GPL-3.0",
+      "license_url": "https://raw.githubusercontent.com/NeoLabHQ/context-engineering-kit/master/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/tech-stack-add-typescript-best-practices/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "analyst",
+      "path": "agent/skills/analyst/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "bc9d46de5a10a854ce4d31be3ba589dec8e2581684dbfab75428c09c1965671a",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "architect",
+      "path": "agent/skills/architect/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "c3c5fa8f6eb8e8483870068ad45b6e6b0a19dd7dcb94d1066dcf947a6cf43a6e",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "critic",
+      "path": "agent/skills/critic/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "daee23858b8845b3d80728a5f5fcfa22ffe60217b95b3410a7830fa1b2bf2ab7",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "debugger",
+      "path": "agent/skills/debugger/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "60a32821ec4c950f79375d1a3b852f92b5ace732a35501142366c8db750c88eb",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "designer",
+      "path": "agent/skills/designer/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "907b7379813208fac9c635dcaedf4633bd596a08bc96a4d73dc7552a7012e2f1",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "developer",
+      "path": "agent/skills/developer/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "d4bb3ef342024c09781754deb0b3749109f827c3fcb8c58ecf5688af95ca69ff",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "documentor",
+      "path": "agent/skills/documentor/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "91d181e7f8ad0cade4db10275fdb2b0930ee7b4a8f21735aa280784f30c45ccb",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "explorer",
+      "path": "agent/skills/explorer/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "d983a2ad626cb4c1bbadc1cfb0fad1228fc1e32c4d91d29b86db1a9a63323f9a",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "frontend",
+      "path": "agent/skills/frontend/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "d2f35ee998d7e8f63fcbfd2bf7a5c7f837327a179714cd5f63b8c1cd2e73ee7b",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "integrator",
+      "path": "agent/skills/integrator/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "e021a4577900237954c984eba1c622e3477a283653bea5fc29f09f5ee94fc115",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "judge",
+      "path": "agent/skills/judge/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "edbc6326d855f6f133ef5fa36738ffb5c35ce570e5455556ef011969789d6352",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "mobile",
+      "path": "agent/skills/mobile/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "68a887b6be01dfa3515e795ecaea0b379cb08c79fbd0f28695eb0fc4e64af379",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "planner",
+      "path": "agent/skills/planner/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "6c7036ed77a6e311036f6b61290f9f5ae7ab421643cd3c168e3fcce4e350b0dc",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "researcher",
+      "path": "agent/skills/researcher/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "049c99c5b814f33bc35a615362511251bf13f1cc99bf02562bfe795bd1d6ffe1",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "reviewer",
+      "path": "agent/skills/reviewer/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "b9f2b63c5214a1494980af5bcbdf6f16ae67661c6a190140f55683b2ab64e13a",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "security",
+      "path": "agent/skills/security/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "d4aa7831f80feb41074e03cdbe3d0a5157d0c8ff629facf8263de40d37601376",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "tester",
+      "path": "agent/skills/tester/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "4241539868cc801c929eea40c326707e8488b3a48d9f50b1f552fc1d0930ccae",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "verifier",
+      "path": "agent/skills/verifier/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "dea64bb0256f9ddcb887f487ed9c1428d95f60afc41d317cfc1c0c7efca894f7",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "build:autonomous-all",
+      "path": "agent/skills/build-autonomous-all/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "f2624e1219a124caef41e1efcd57b8d53f0fc762fde2ea381e64a3c343eacdb0",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "build:fast",
+      "path": "agent/skills/build-fast/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "6d043523ef635c234eec8b92f39322cc14c58027e66b519a28e915682e08ded2",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "build:help",
+      "path": "agent/skills/build-help/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "887c1bae026e2f946e716fd876f34e66bc1e54ba50a7a3c0c2362251478f9a05",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "build:init",
+      "path": "agent/skills/build-init/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "5f5c3085f2d27f4f7de6568976f517a17d4ed19391bfd651ace37dfa7ccd42b9",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "build:phase",
+      "path": "agent/skills/build-phase/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "3defa7899814ea8d1d8a9e68f513f6c327d3f2f1e8144747948675795e02f280",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "build:quick",
+      "path": "agent/skills/build-quick/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "14a471a93dfffe9ce5eb3eed6e9555b1c51974754146f1137a6f858c94187163",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "build:review",
+      "path": "agent/skills/build-review/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "46f31ebdae2f998732f6d106f96fb269e488cdaba44e1f446d6a0f39dd88fc53",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "build:status",
+      "path": "agent/skills/build-status/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "eabd157a1a40e29abd35089a0ea9bda80596cf1c65da96223fe978879dacdf37",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "build:team-phase",
+      "path": "agent/skills/build-team-phase/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "dc90b93a84ec7a47026779d6c6db1afce52f94e93b1c1c627a19c4de0dd1719d",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "breezing",
+      "path": "agent/skills/breezing/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "e5278dc5663d47add5e19cc611b205f44b8f94fd94496010deb7ea28376a8cf6",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "harness-plan",
+      "path": "agent/skills/harness-plan/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "3191e13521e12afb84933be2cef13f2c944d337e0956a97556fb89e5c7fdfe72",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "harness-release",
+      "path": "agent/skills/harness-release/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "6c2b7ba49cb6466ae09911edb9be2dea575523efcd77e38fea3e758ede2708f0",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "harness-review",
+      "path": "agent/skills/harness-review/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "a0929580aa43421b6a68c14fe1ebbde3aa6b95e3bb2b2fc10f757598700c9393",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "harness-setup",
+      "path": "agent/skills/harness-setup/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "f2a5b29e4bec31154836783b57e02a986c1026726679e9a80c95a536abd21e66",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "harness-sync",
+      "path": "agent/skills/harness-sync/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "192e7d95a2380eee68f921dc38dd0e801ef09535a212528f28f1f6b8a6b1469a",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "harness-work",
+      "path": "agent/skills/harness-work/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-build.git",
+      "source_revision": "5d4a3888cd5dc3340a2e76fd5c2fcb196c4ece91",
+      "sha256": "941bde8177cf8a856d4a147c8ee08a07f02ccd596d920b4bdbe0a883dc16baeb",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "canvas-design",
+      "path": "agent/skills/canvas-design/SKILL.md",
+      "source": "https://github.com/anthropics/skills.git",
+      "source_revision": "",
+      "sha256": "4919b8bfdcc06618577ecd56c91cbd2f85271e52c54e51213e72482c5e3fb693",
+      "license": "Apache-2.0",
+      "license_url": "https://raw.githubusercontent.com/anthropics/skills/main/skills/canvas-design/LICENSE.txt",
+      "license_files": [
+        {
+          "path": "agent/skills/canvas-design/LICENSE.txt",
+          "sha256": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362"
+        }
+      ]
+    },
+    {
+      "name": "ci-cd-fixer",
+      "path": "agent/skills/ci-cd-fixer/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "3dea33537ab2cee23351e28a9d17d5a4622d993da4102cab0ee5fa561ee625fe",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/ci-cd-fixer/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/ci-cd-fixer/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "code-reviewer",
+      "path": "agent/skills/code-reviewer/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "ed9c2b3e568e150a3c99ff5b9f05a819d53048f6eeed5fe95c73adb78a981fe2",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/code-reviewer/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/code-reviewer/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "codex-implementer",
+      "path": "agent/skills/codex-implementer/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "d5564aec2944c30ed88ae01149a1fc9806ff2afcbbaac7f9c66d11f31ea567fa",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/codex-implementer/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/codex-implementer/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "error-recovery",
+      "path": "agent/skills/error-recovery/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "0749b58da7d87542b5763d519b7945763ac1f47108c6ffabd8cd912eb0dfbaa2",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/error-recovery/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/error-recovery/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "plan-analyst",
+      "path": "agent/skills/plan-analyst/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "a7bb72685b0f3a52a84c66a13d4dff8d1e360ff776d2cceef291c492e3816afc",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/plan-analyst/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/plan-analyst/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "plan-critic",
+      "path": "agent/skills/plan-critic/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "08a582a289545055af90b741aacbc3d7a1c9f528355bd8ec601b5dda843ba9e2",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/plan-critic/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/plan-critic/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "project-analyzer",
+      "path": "agent/skills/project-analyzer/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "88fe40168b39b3aa4186bca6bf465d972380cc1c732790dd0bd1e379afd42894",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/project-analyzer/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/project-analyzer/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "project-scaffolder",
+      "path": "agent/skills/project-scaffolder/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "307e52185702a1d1dd6ed5f59794d70d48dfedff158f57dd2f7e6b0b4ee2f04b",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/project-scaffolder/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/project-scaffolder/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "project-state-updater",
+      "path": "agent/skills/project-state-updater/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "b2b32efa5fbbdddf3a04ca2847e643b98230d7d5341fe62ddfcc3d8ccdf9fd4d",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/project-state-updater/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/project-state-updater/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "task-worker",
+      "path": "agent/skills/task-worker/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "42aec541767287227e65d2c9d6a0a7df5b6d6d66447888872f532f497d7be466",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/task-worker/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/task-worker/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "video-scene-generator",
+      "path": "agent/skills/video-scene-generator/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "0f9be60bcae8a3bc786be69839e6cdd91dfa8a4cb17528b2d884a46e987d9e6a",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/video-scene-generator/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/video-scene-generator/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "scaffolder",
+      "path": "agent/skills/scaffolder/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "c5186554cdb0f40f9ce06c6eab64e9289041a71760bca4f116a3f63c3802d458",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/scaffolder/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/scaffolder/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "worker",
+      "path": "agent/skills/worker/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "8ac5bee77b8804d5626d72507cd93b4bb15c5c58c2bb8be85c1877ee4ca6abf3",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/worker/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/worker/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "pm",
+      "path": "agent/skills/pm/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "374ae75b17b728c8c555b1531c56a1c543ac611ecd56a48cda609ee7be9f694b",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/pm/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/pm/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "agent-browser",
+      "path": "agent/skills/agent-browser/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "a5dc6efec615e17eb87576852d798672af26778c843c65c8b05ba9875cb16aca",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/agent-browser/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/agent-browser/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "auth",
+      "path": "agent/skills/auth/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "c41413018d5fd50340c62b5c0702e23de526091e26255397814bc7dbad152e94",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/auth/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/auth/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "cc-cursor-cc",
+      "path": "agent/skills/cc-cursor-cc/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "459bef674ffdc44417881f8fd519f05d0b7601ce7c87a1d1c430d70f89fbf1dd",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/cc-cursor-cc/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/cc-cursor-cc/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "ci",
+      "path": "agent/skills/ci/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "d6d354aac20336de5748f01a8b2e570372bd8baf3bbc21acbadec6caecbbeb31",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/ci/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/ci/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "crud",
+      "path": "agent/skills/crud/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "c34c6c81f48046b17db79010aaaa0017b6c327970a53d7cebc954b77d02e1795",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/crud/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/crud/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "deploy",
+      "path": "agent/skills/deploy/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "81a23126de9aaa46a069e4d1619d5b66a2919b74c557b04dd74521ab2be075f2",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/deploy/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/deploy/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "generate-slide",
+      "path": "agent/skills/generate-slide/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "824f3c16277833f1ce783f2e823bbf7e216ebdace14afb1d495de751a61eb7e3",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/generate-slide/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/generate-slide/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "generate-video",
+      "path": "agent/skills/generate-video/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "f5e02890a2b58deaee24161693290697cfaca9589e40b70f0ec0256c4b78a25e",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/generate-video/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/generate-video/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "gogcli-ops",
+      "path": "agent/skills/gogcli-ops/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "ec35e3ae0cc466d8f89b8f65c53105f40e45760974540aee78ecdc43922b2af2",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/gogcli-ops/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/gogcli-ops/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "memory",
+      "path": "agent/skills/memory/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "909e463bbbf5418384242b338a84827afdb9467980f11ead4bd109d70c29055c",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/memory/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/memory/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "notebooklm",
+      "path": "agent/skills/notebooklm/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "5227288f4817f947fa1488e687400496cf9b9d83c80643eae77e2ad9d493bcd9",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/notebooklm/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/notebooklm/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "principles",
+      "path": "agent/skills/principles/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "28ab5461372ce49348fb0de290430191cc7f8fe1a01ac2cc32e272a9d39d8747",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/principles/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/principles/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "session",
+      "path": "agent/skills/session/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "98dd5fdc147bbb5392947fbec7a3f236e6e853b3146c7e2af252c4f86427fd93",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/session/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/session/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "session-control",
+      "path": "agent/skills/session-control/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "2c67c7ea3879304f5b0c6555908409c73fcfcf65f74f2d4fe04cd7dc27befead",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/session-control/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/session-control/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "session-init",
+      "path": "agent/skills/session-init/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "d8fa9d0068b9a569a722d44365a3a51b1c380642921d60b7155360e8afe0276a",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/session-init/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/session-init/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "session-memory",
+      "path": "agent/skills/session-memory/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "a5316a8af1b9bd1caf8e19b9a21f02bf62916a8160360ae18d8c9886c28a3f08",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/session-memory/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/session-memory/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "session-state",
+      "path": "agent/skills/session-state/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "858106ba01c2e55ae4253f929253921e6e8e3d04b5955f11aa5a47e1e0c8e9cd",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/session-state/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/session-state/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "ui",
+      "path": "agent/skills/ui/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "0d7a267fb9d57307d3c0331ac4eb6419a88ea95aab51e71e41114d2546f1e346",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/ui/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/ui/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "vibecoder-guide",
+      "path": "agent/skills/vibecoder-guide/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "f3288b1ae434a8ad042493feceb32d8639cb435e8fd495dca35aa1ff23713672",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/vibecoder-guide/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/vibecoder-guide/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "workflow-guide",
+      "path": "agent/skills/workflow-guide/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "977f932ae2779246f4124a53c5497829eebfba91e7978e8690fd41c76416c6aa",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/workflow-guide/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/workflow-guide/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "Harness Ops",
+      "path": "agent/skills/harness-ops/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "e0642f02a192b3b1df8297975b8d0145777a1dadc7249f10d5b533428cdbc232",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/harness-ops/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/harness-ops/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "commands",
+      "path": "agent/skills/commands/SKILL.md",
+      "source": "https://github.com/Chachamaru127/claude-code-harness.git",
+      "source_revision": "9a8cb88fdcbb1e43e9ed1454f178b18bcd1e3df0",
+      "sha256": "df3adc5ca8c4ac91099628fedde6b970bac40b0ad5f3813dffef512b04fa6553",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/Chachamaru127/claude-code-harness/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/commands/LICENSE.md",
+          "sha256": "05678f1f3878cfafee6fba047bd6ea5877df4a66c6d420c9f0225b6709edfda3"
+        },
+        {
+          "path": "agent/skills/commands/LICENSE.ja.md",
+          "sha256": "abb0ec29153748862dc9e1da0be2ad1d2dc8f1874dab34bc0c3d61656fc9114b"
+        }
+      ]
+    },
+    {
+      "name": "find-skill",
+      "path": "agent/skills/find-skill/SKILL.md",
+      "source": "https://github.com/fockus/claude-skill-find-skill.git",
+      "source_revision": "74c2a4d1aa4296f5ba6ee8afefedf436ed0da760",
+      "sha256": "d5f31de7a6a67929be0755d2d26764455106c29057cc4f22b6ae062ff201aa4c",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "code-factory",
+      "path": "agent/skills/code-factory/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "a165f1f116a152ee25d436c71dfbf41fe8a4ccf6a0c1feab77ce034c84af6156",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "deploy-to-vercel",
+      "path": "agent/skills/deploy-to-vercel/SKILL.md",
+      "source": "https://github.com/vercel-labs/agent-skills.git",
+      "source_revision": "",
+      "sha256": "cfcc3dd479ab2e0ae721ddf39b8af84d977321487672f1487c8d6855f576927b",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "design-motion-principles",
+      "path": "agent/skills/design-motion-principles/SKILL.md",
+      "source": "https://github.com/kylezantos/design-motion-principles.git",
+      "source_revision": "",
+      "sha256": "599f42dbf011df38f3fcaf1497533af447d91cf97443b92439455af103c25b2e",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/kylezantos/design-motion-principles/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/design-motion-principles/LICENSE",
+          "sha256": "5945ed68f9c1f6c2cfecc674ce66226221f6a40ec4bf2e0b1a1f0084cf108bdb"
+        }
+      ]
+    },
+    {
+      "name": "design-system",
+      "path": "agent/skills/design-system/SKILL.md",
+      "source": "https://github.com/affaan-m/ECC.git",
+      "source_revision": "",
+      "sha256": "48259261aa52c6f99f92c8dc9d981d5ca312d7e499b2caf67788e6d0569bb4f2",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/affaan-m/ECC/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/design-system/LICENSE",
+          "sha256": "326146379f01bb137c0a5d3c54770c1aa31076705c8b88a7f6b26a460f6221b2"
+        }
+      ]
+    },
+    {
+      "name": "excalidraw-diagram",
+      "path": "agent/skills/excalidraw-diagram/SKILL.md",
+      "source": "https://github.com/coleam00/excalidraw-diagram-skill.git",
+      "source_revision": "8646fcc9f74f38539c6cdb4c969723336a96ddcd",
+      "sha256": "1346ee22493518e0e292ca808717838edcbc1a88855cd0d6fea7a055a6d43236",
+      "license": "Not verified",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "building-native-ui",
+      "path": "agent/skills/building-native-ui/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "dc9c08d2601ea0f3df25656da2c6bff4f28fbc164901fabf7c8b504f5c833c19",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/expo/skills/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/building-native-ui/LICENSE",
+          "sha256": "49c5f9c7097c9a940ff663a54c27a4c60e379df6cc2b3052df0d37a09a85df93"
+        }
+      ]
+    },
+    {
+      "name": "expo-api-routes",
+      "path": "agent/skills/expo-api-routes/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "db4d2cd6fbce04d9a7914db6e37513c218d5fb678e962c034ebfc122c7406fd3",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/expo/skills/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/expo-api-routes/LICENSE",
+          "sha256": "49c5f9c7097c9a940ff663a54c27a4c60e379df6cc2b3052df0d37a09a85df93"
+        }
+      ]
+    },
+    {
+      "name": "expo-cicd-workflows",
+      "path": "agent/skills/expo-cicd-workflows/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "484e1867238a1760d775dd9492ad720ef5099367fbef6907974c69a6a8adc723",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/expo/skills/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/expo-cicd-workflows/LICENSE",
+          "sha256": "49c5f9c7097c9a940ff663a54c27a4c60e379df6cc2b3052df0d37a09a85df93"
+        }
+      ]
+    },
+    {
+      "name": "expo-deployment",
+      "path": "agent/skills/expo-deployment/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "81b700b0cfe12ac175d4f64d052464db5f7ddc40e8a29cba52c642d87acee0dd",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/expo/skills/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/expo-deployment/LICENSE",
+          "sha256": "49c5f9c7097c9a940ff663a54c27a4c60e379df6cc2b3052df0d37a09a85df93"
+        }
+      ]
+    },
+    {
+      "name": "expo-dev-client",
+      "path": "agent/skills/expo-dev-client/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "aa79e42e9cd96ea92d4e691fb8222145055dec1b868b7defce224a41d8878a5f",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/expo/skills/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/expo-dev-client/LICENSE",
+          "sha256": "49c5f9c7097c9a940ff663a54c27a4c60e379df6cc2b3052df0d37a09a85df93"
+        }
+      ]
+    },
+    {
+      "name": "expo-tailwind-setup",
+      "path": "agent/skills/expo-tailwind-setup/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "6abfc223a376571e0ee84014b3b474a3f2828ac2ebcde59c5c2b6b4bc802e233",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/expo/skills/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/expo-tailwind-setup/LICENSE",
+          "sha256": "49c5f9c7097c9a940ff663a54c27a4c60e379df6cc2b3052df0d37a09a85df93"
+        }
+      ]
+    },
+    {
+      "name": "expo-ui-jetpack-compose",
+      "path": "agent/skills/expo-ui-jetpack-compose/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "6330c87373fca0bc79880e5c538e354e703b4fce03ef344d4a4931bf4c7cea04",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/expo/skills/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/expo-ui-jetpack-compose/LICENSE",
+          "sha256": "49c5f9c7097c9a940ff663a54c27a4c60e379df6cc2b3052df0d37a09a85df93"
+        }
+      ]
+    },
+    {
+      "name": "expo-ui-swiftui",
+      "path": "agent/skills/expo-ui-swiftui/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "57dcf456954433854541ef8506c82b1a9221fd1cb386878f629dbc9957258022",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/expo/skills/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/expo-ui-swiftui/LICENSE",
+          "sha256": "49c5f9c7097c9a940ff663a54c27a4c60e379df6cc2b3052df0d37a09a85df93"
+        }
+      ]
+    },
+    {
+      "name": "native-data-fetching",
+      "path": "agent/skills/native-data-fetching/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "ab855acdad6f593eb597b2891671808bf57fc4618fb0eaa26a84ea30576a5d5e",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/expo/skills/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/native-data-fetching/LICENSE",
+          "sha256": "49c5f9c7097c9a940ff663a54c27a4c60e379df6cc2b3052df0d37a09a85df93"
+        }
+      ]
+    },
+    {
+      "name": "upgrading-expo",
+      "path": "agent/skills/upgrading-expo/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "373efb08acd4002922b1d6eb6dbfff6a871e38841f72f0753f4928650ed70ee1",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/expo/skills/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/upgrading-expo/LICENSE",
+          "sha256": "49c5f9c7097c9a940ff663a54c27a4c60e379df6cc2b3052df0d37a09a85df93"
+        }
+      ]
+    },
+    {
+      "name": "use-dom",
+      "path": "agent/skills/use-dom/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "7041bb26db02e24c45eb6c4c4879138a0f52786dd928eefd66c90a35b0e3197d",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/expo/skills/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/use-dom/LICENSE",
+          "sha256": "49c5f9c7097c9a940ff663a54c27a4c60e379df6cc2b3052df0d37a09a85df93"
+        }
+      ]
+    },
+    {
+      "name": "frontend-design",
+      "path": "agent/skills/frontend-design/SKILL.md",
+      "source": "https://github.com/anthropics/skills.git",
+      "source_revision": "",
+      "sha256": "8254e377881b60ef6963f035f100976141268915de6c6186f1a0b33ade903719",
+      "license": "Apache-2.0",
+      "license_url": "https://raw.githubusercontent.com/anthropics/skills/main/skills/frontend-design/LICENSE.txt",
+      "license_files": [
+        {
+          "path": "agent/skills/frontend-design/LICENSE.txt",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+        }
+      ]
+    },
+    {
+      "name": "go-developer",
+      "path": "agent/skills/go-developer/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "05da56f142f4dc2ce63cefb3f6e8387a1156fed51dd804a7bf3cc79b062e395c",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/gvre/skills/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/go-developer/LICENSE",
+          "sha256": "1b387bbdd43cde35f7f91abf8855a8ffc79bd9332bac9941838be464f33eed0f"
+        }
+      ]
+    },
+    {
+      "name": "go-latest-version",
+      "path": "agent/skills/go-latest-version/SKILL.md",
+      "source": "https://github.com/FumingPower3925/go-latest-version.git",
+      "source_revision": "7d04fba5e3378f420a0aa87702f626bf06da327f",
+      "sha256": "2cf658d4b3f66e3ee6d99688fb1945d226f0e922a2ce90056c30ec204b33a25f",
+      "license": "Apache-2.0",
+      "license_url": "https://raw.githubusercontent.com/FumingPower3925/go-latest-version/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/go-latest-version/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ]
+    },
+    {
+      "name": "go-performance",
+      "path": "agent/skills/go-performance/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "66992d60c4de94fb1a71dabede2c8ff62cbf8434416998ea6656e735bc21e547",
+      "license": "Not verified",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "gws-calendar",
+      "path": "agent/skills/gws-calendar/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "d99a5aeb04ee9460852e66d82e98b6ffd0f24ca41a7aa9ee327f13cd567f20c7",
+      "license": "Apache-2.0",
+      "license_url": "https://raw.githubusercontent.com/googleworkspace/cli/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/gws-calendar/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "name": "gws-docs",
+      "path": "agent/skills/gws-docs/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "8ebef70bcbecbefd934e12d87bcb4353003822d054bbeea98c62de7fd60bcff5",
+      "license": "Apache-2.0",
+      "license_url": "https://raw.githubusercontent.com/googleworkspace/cli/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/gws-docs/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "name": "gws-drive",
+      "path": "agent/skills/gws-drive/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "a4df8c2e15566a394ced4e9019ea9aadebbfaed6a67119b674893d4dd1b587ad",
+      "license": "Apache-2.0",
+      "license_url": "https://raw.githubusercontent.com/googleworkspace/cli/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/gws-drive/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "name": "gws-gmail",
+      "path": "agent/skills/gws-gmail/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "3c5419b9bf90b35e1fbf4ff4641dc868b8eec543eef0d3653634ea08f5db4d6a",
+      "license": "Apache-2.0",
+      "license_url": "https://raw.githubusercontent.com/googleworkspace/cli/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/gws-gmail/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "name": "gws-shared",
+      "path": "agent/skills/gws-shared/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "cae719261c7a1d6abafaff4d7e0ac663af31ff7f583801aabb63ae9544b7bc4c",
+      "license": "Apache-2.0",
+      "license_url": "https://raw.githubusercontent.com/googleworkspace/cli/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/gws-shared/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "name": "gws-slides",
+      "path": "agent/skills/gws-slides/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "7449e6c649feed50794c49cfedf3639d59a78adb56e68924cd057265e24d6652",
+      "license": "Apache-2.0",
+      "license_url": "https://raw.githubusercontent.com/googleworkspace/cli/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/gws-slides/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "name": "gws-tasks",
+      "path": "agent/skills/gws-tasks/SKILL.md",
+      "source": "https://github.com/googleworkspace/cli.git",
+      "source_revision": "",
+      "sha256": "907869dc38502c1894e244f2eb728e4f3f708c8b0431b99527e541a9b2c7885e",
+      "license": "Apache-2.0",
+      "license_url": "https://raw.githubusercontent.com/googleworkspace/cli/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/gws-tasks/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "name": "impeccable",
+      "path": "agent/skills/impeccable/SKILL.md",
+      "source": "https://github.com/pbakaus/impeccable.git",
+      "source_revision": "",
+      "sha256": "1618b38636473ae14011af272029241c99d8baaaff2f0d16b979e1bb2e30208d",
+      "license": "Apache-2.0",
+      "license_url": "https://raw.githubusercontent.com/pbakaus/impeccable/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/impeccable/LICENSE",
+          "sha256": "02bb8c3b4e70190e3986c0404ad2fd8d639b4f534252d82379cc1b502b6d1812"
+        }
+      ]
+    },
+    {
+      "name": "last30days",
+      "path": "agent/skills/last30days/SKILL.md",
+      "source": "https://github.com/mvanhorn/last30days-skill.git",
+      "source_revision": "4d6224f79aab743052d36248949ca03b24fded26",
+      "sha256": "74913f22d2d5e70d71c97b3cf3f35ecd0428b3e9dfa989903be06e5cdb79536d",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/mvanhorn/last30days-skill/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/last30days/LICENSE",
+          "sha256": "31803213a789825dc419de43542381e1d570b4408cf2bcf2e8a9947a6d3fd2ab"
+        }
+      ]
+    },
+    {
+      "name": "mcp-builder",
+      "path": "agent/skills/mcp-builder/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "0f4592dcb53cf2b5d6b7febee6b4152018b565551a1c29e3c612f57b218ab295",
+      "license": "Apache-2.0",
+      "license_url": "https://raw.githubusercontent.com/anthropics/skills/main/skills/mcp-builder/LICENSE.txt",
+      "license_files": [
+        {
+          "path": "agent/skills/mcp-builder/LICENSE.txt",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+        }
+      ]
+    },
+    {
+      "name": "microsoft-foundry",
+      "path": "agent/skills/microsoft-foundry/SKILL.md",
+      "source": "https://github.com/microsoft/azure-skills.git",
+      "source_revision": "",
+      "sha256": "92b2810264e111f7fb79d1577209bf52910b87effeaf698f00f1d8285ea9752e",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/microsoft/azure-skills/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/microsoft-foundry/LICENSE",
+          "sha256": "8a5d8efb70942e65032f930c761d097feeb41a7517ebd04c9d2e4ec3764071c5"
+        }
+      ]
+    },
+    {
+      "name": "motion-design",
+      "path": "agent/skills/motion-design/SKILL.md",
+      "source": "https://github.com/LottieFiles/motion-design-skill.git",
+      "source_revision": "",
+      "sha256": "8729ecbc7e5736c1295baaa8ba0384bb4b1aac9cf91b83fcdc64d9548a57bb19",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/LottieFiles/motion-design-skill/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/motion-design/LICENSE",
+          "sha256": "9fc2e8685daa09e28d54b6afa8a38f168417c5735a3cd676c80c159785e93a80"
+        }
+      ]
+    },
+    {
+      "name": "pptx",
+      "path": "agent/skills/pptx/SKILL.md",
+      "source": "https://github.com/anthropics/skills",
+      "source_revision": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sha256": "598c981d93f2173b251f86a4bc94e9fb4e4f5ddaa314ba2dd4eca24b7a07808e",
+      "license": "Apache-2.0",
+      "license_url": "https://raw.githubusercontent.com/anthropics/skills/e4bb5d960d87126ff3b3a8af1a104b7db67560ba/skills/pptx/LICENSE.txt",
+      "license_files": [
+        {
+          "path": "agent/skills/pptx/LICENSE.txt",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+        }
+      ]
+    },
+    {
+      "name": "remotion-best-practices",
+      "path": "agent/skills/remotion-best-practices/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "2f9be561c1c3659aea1b4c777a9b57733dcd466b6e85231316d2841d947584bf",
+      "license": "Not verified",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "replicate",
+      "path": "agent/skills/replicate/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "f24ae8ca81097d6d4f62d969edc18fa132c98d6c3e8b40f688779eec8bad40aa",
+      "license": "Not verified",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "revealjs",
+      "path": "agent/skills/revealjs/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "a2fca9bd3bd8c7db7256040cabf28ac18142c85473fbf6cc6a92b45ab35c3a03",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/ryanbbrown/revealjs-skill/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/revealjs/LICENSE",
+          "sha256": "8420e97c15e6735d6ce87be8eb1a3e90af53bdacd4b4423dd826e0f1479216e6"
+        }
+      ]
+    },
+    {
+      "name": "sentry-cli",
+      "path": "agent/skills/sentry-cli/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "6db9a5cc56e3ed2b3c68f856d433066c88dfd24e554e04e845bfb32df94761dd",
+      "license": "FSL-1.1-Apache-2.0",
+      "license_url": "https://raw.githubusercontent.com/getsentry/cli/main/LICENSE.md",
+      "license_files": [
+        {
+          "path": "agent/skills/sentry-cli/LICENSE",
+          "sha256": "c51f382a888f8f59f54a72af01e2d72032f2ba8f31d8194f8bf489123438195a"
+        }
+      ]
+    },
+    {
+      "name": "shadcn-ui",
+      "path": "agent/skills/shadcn-ui/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "2ddfe599ac2ba631ca019f7b6e37ee5df9cd34f83fc016f6ea9d4ba5bbfa0304",
+      "license": "Apache-2.0",
+      "license_url": "https://raw.githubusercontent.com/google-labs-code/stitch-skills/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/shadcn-ui/LICENSE",
+          "sha256": "b4133a55232c0996713349891dc55469d46a16ec027c033c9e4108b2149abb42"
+        }
+      ]
+    },
+    {
+      "name": "skill-creator",
+      "path": "agent/skills/skill-creator/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "b2e3d83f60425c2d0b9d4162efb8f9aa322b45843497340f2289f42be422801c",
+      "license": "Apache-2.0",
+      "license_url": "https://raw.githubusercontent.com/anthropics/skills/main/skills/skill-creator/LICENSE.txt",
+      "license_files": [
+        {
+          "path": "agent/skills/skill-creator/LICENSE.txt",
+          "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+        }
+      ]
+    },
+    {
+      "name": "source-command-build-help",
+      "path": "agent/skills/source-command-build-help/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "a2b6e8aa792b67d429be617d2e8105fd4d635b80d753c659c1d0f6d9cb232638",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "source-command-build-status",
+      "path": "agent/skills/source-command-build-status/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "b150f8f3e8225851a446341933f9a0c9a81da64cbd25ab510c5e45b28bd96b30",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "source-command-catchup",
+      "path": "agent/skills/source-command-catchup/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "410a09c4c328a166bd19faa44728ea23daf87d7f2c8440316125b07f9d9f2825",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/fockus/skill-memory-bank/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/source-command-catchup/LICENSE",
+          "sha256": "6efa85e896bc02d37c4152933fa8b6870b3525c6c1d3661d1b5d1a2675e93e9d"
+        }
+      ]
+    },
+    {
+      "name": "source-command-config",
+      "path": "agent/skills/source-command-config/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "1aae28a12fda35c65a68e05668d22696a7e5f25f7d8316cd2d84f3c176a4790b",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/fockus/skill-memory-bank/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/source-command-config/LICENSE",
+          "sha256": "6efa85e896bc02d37c4152933fa8b6870b3525c6c1d3661d1b5d1a2675e93e9d"
+        }
+      ]
+    },
+    {
+      "name": "source-command-discuss",
+      "path": "agent/skills/source-command-discuss/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "7fdbc93e2bbf09493e49a5eba03519f4cc10218d0b747e3c8caa4208a35d1619",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/fockus/skill-memory-bank/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/source-command-discuss/LICENSE",
+          "sha256": "6efa85e896bc02d37c4152933fa8b6870b3525c6c1d3661d1b5d1a2675e93e9d"
+        }
+      ]
+    },
+    {
+      "name": "source-command-done",
+      "path": "agent/skills/source-command-done/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "3cc4464dadb421f5a44c6643aa7e208f2e2c925a2353323392dfc7e098384dd5",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/fockus/skill-memory-bank/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/source-command-done/LICENSE",
+          "sha256": "6efa85e896bc02d37c4152933fa8b6870b3525c6c1d3661d1b5d1a2675e93e9d"
+        }
+      ]
+    },
+    {
+      "name": "source-command-factory-help",
+      "path": "agent/skills/source-command-factory-help/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "5de15ef98f3158dc97a6215f5a893f9f5bd6237210f4f43c77f5057c8cfcae07",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "source-command-install-skill",
+      "path": "agent/skills/source-command-install-skill/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "a03cf940c5fbf2eb563dad1a468b094ecff3d571a07fe730217ff8565d66e43a",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "source-command-review",
+      "path": "agent/skills/source-command-review/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "b344ace6ccd3c6f4656d3df985e54eecee8ccb936a87c2c6ece108fdf238f99f",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/fockus/skill-memory-bank/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/source-command-review/LICENSE",
+          "sha256": "6efa85e896bc02d37c4152933fa8b6870b3525c6c1d3661d1b5d1a2675e93e9d"
+        }
+      ]
+    },
+    {
+      "name": "source-command-roadmap-sync",
+      "path": "agent/skills/source-command-roadmap-sync/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "39430cbd5ae222643eed94ab0ed84736aae5493c04ca01396f4a7f9442027900",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/fockus/skill-memory-bank/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/source-command-roadmap-sync/LICENSE",
+          "sha256": "6efa85e896bc02d37c4152933fa8b6870b3525c6c1d3661d1b5d1a2675e93e9d"
+        }
+      ]
+    },
+    {
+      "name": "source-command-sdd",
+      "path": "agent/skills/source-command-sdd/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "1ec8243ec3711c58660cac15ad2a9e3e95d648daf4db7dc69a08bc5a812ba73c",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/fockus/skill-memory-bank/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/source-command-sdd/LICENSE",
+          "sha256": "6efa85e896bc02d37c4152933fa8b6870b3525c6c1d3661d1b5d1a2675e93e9d"
+        }
+      ]
+    },
+    {
+      "name": "source-command-start",
+      "path": "agent/skills/source-command-start/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "e952f2175da7c626aaa34c45b3e117fcde6d32066fc015e0a95bd775555b5859",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/fockus/skill-memory-bank/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/source-command-start/LICENSE",
+          "sha256": "6efa85e896bc02d37c4152933fa8b6870b3525c6c1d3661d1b5d1a2675e93e9d"
+        }
+      ]
+    },
+    {
+      "name": "source-command-traceability-gen",
+      "path": "agent/skills/source-command-traceability-gen/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "379e5fceab97fa74350444aa1760781a3ddce0b7e495addfee7755f02a4deb1e",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/fockus/skill-memory-bank/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/source-command-traceability-gen/LICENSE",
+          "sha256": "6efa85e896bc02d37c4152933fa8b6870b3525c6c1d3661d1b5d1a2675e93e9d"
+        }
+      ]
+    },
+    {
+      "name": "source-command-work",
+      "path": "agent/skills/source-command-work/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "af04bd99a3b2102606f5bb78eab95b177daa591f7d8c60688e9db29b25ba09f0",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/fockus/skill-memory-bank/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/source-command-work/LICENSE",
+          "sha256": "6efa85e896bc02d37c4152933fa8b6870b3525c6c1d3661d1b5d1a2675e93e9d"
+        }
+      ]
+    },
+    {
+      "name": "brainstorming",
+      "path": "agent/skills/brainstorming/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "bba47904a7f6bbee3bf8a107ebbe84e65d392be683bbb898ded736b29e415f90",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/obra/superpowers/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/brainstorming/LICENSE",
+          "sha256": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400"
+        }
+      ]
+    },
+    {
+      "name": "dispatching-parallel-agents",
+      "path": "agent/skills/dispatching-parallel-agents/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "0fe7050923d0c3b91f65aa93b284cdf27315e12d4acae1a75b6b8b9790f7cf36",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/obra/superpowers/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/dispatching-parallel-agents/LICENSE",
+          "sha256": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400"
+        }
+      ]
+    },
+    {
+      "name": "executing-plans",
+      "path": "agent/skills/executing-plans/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "2f6a9c541acd3036c112cf38071b4de1ba4e172143ddfb247b58ff3ef0ee5765",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/obra/superpowers/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/executing-plans/LICENSE",
+          "sha256": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400"
+        }
+      ]
+    },
+    {
+      "name": "finishing-a-development-branch",
+      "path": "agent/skills/finishing-a-development-branch/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "dd2f82c6dc8582b621f9eb57fcb65f557f88eadf872727ac81d0840ae12c504e",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/obra/superpowers/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/finishing-a-development-branch/LICENSE",
+          "sha256": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400"
+        }
+      ]
+    },
+    {
+      "name": "receiving-code-review",
+      "path": "agent/skills/receiving-code-review/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "ce9631715543dd92e388cabb62cb8196c1ad0888789c65578dc5726ce0c7a324",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/obra/superpowers/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/receiving-code-review/LICENSE",
+          "sha256": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400"
+        }
+      ]
+    },
+    {
+      "name": "requesting-code-review",
+      "path": "agent/skills/requesting-code-review/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "a5ff68586ccf62d1803cedeb71d60fd96ec05591d29c8d123196117eefd34cd0",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/obra/superpowers/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/requesting-code-review/LICENSE",
+          "sha256": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400"
+        }
+      ]
+    },
+    {
+      "name": "subagent-driven-development",
+      "path": "agent/skills/subagent-driven-development/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "081ad3869e55c80bf8f890b4768a90c0e8057daf94b1b6fadebfc85ea5b8304a",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/obra/superpowers/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/subagent-driven-development/LICENSE",
+          "sha256": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400"
+        }
+      ]
+    },
+    {
+      "name": "systematic-debugging",
+      "path": "agent/skills/systematic-debugging/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "4999cb851360485eca5074e727bbdd62ef20549c5d5b01216fcbf5831badb473",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/obra/superpowers/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/systematic-debugging/LICENSE",
+          "sha256": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400"
+        }
+      ]
+    },
+    {
+      "name": "test-driven-development",
+      "path": "agent/skills/test-driven-development/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "7dee67b4af6bdccc7a914ca34533184d64592d0f5b23aeae631538168db14994",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/obra/superpowers/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/test-driven-development/LICENSE",
+          "sha256": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400"
+        }
+      ]
+    },
+    {
+      "name": "using-git-worktrees",
+      "path": "agent/skills/using-git-worktrees/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "bd74d837c429022eb6f3c0ff146beca75541f6a4ca4c038a59e96ab6226f42d5",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/obra/superpowers/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/using-git-worktrees/LICENSE",
+          "sha256": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400"
+        }
+      ]
+    },
+    {
+      "name": "using-superpowers",
+      "path": "agent/skills/using-superpowers/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "d0aec4aff8d00deb8c68cfb918694f9fc5703e58563af8c3447168a60b7ac51c",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/obra/superpowers/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/using-superpowers/LICENSE",
+          "sha256": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400"
+        }
+      ]
+    },
+    {
+      "name": "verification-before-completion",
+      "path": "agent/skills/verification-before-completion/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "ea52d15aabaf72bc6b558efe2c126f161b53961090ddcd712000273bfe8c7b6c",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/obra/superpowers/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/verification-before-completion/LICENSE",
+          "sha256": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400"
+        }
+      ]
+    },
+    {
+      "name": "writing-plans",
+      "path": "agent/skills/writing-plans/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "90056bad3d5f196fa7c9fec0ffe592e6d9c86bc983e406642a51d1a4198b7024",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/obra/superpowers/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/writing-plans/LICENSE",
+          "sha256": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400"
+        }
+      ]
+    },
+    {
+      "name": "writing-skills",
+      "path": "agent/skills/writing-skills/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "5be829e4745097d9179d924b5d7bac91b67f81e416fd7437a4ada41ceb474681",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/obra/superpowers/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/writing-skills/LICENSE",
+          "sha256": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400"
+        }
+      ]
+    },
+    {
+      "name": "theme-factory",
+      "path": "agent/skills/theme-factory/SKILL.md",
+      "source": "https://github.com/anthropics/skills.git",
+      "source_revision": "",
+      "sha256": "c35893e221e28895c52143cc11bf30e41a44817796b39d4b15727dadc9796552",
+      "license": "Apache-2.0",
+      "license_url": "https://raw.githubusercontent.com/anthropics/skills/main/skills/theme-factory/LICENSE.txt",
+      "license_files": [
+        {
+          "path": "agent/skills/theme-factory/LICENSE.txt",
+          "sha256": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362"
+        }
+      ]
+    },
+    {
+      "name": "typefully",
+      "path": "agent/skills/typefully/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "369e590024c9418fe326ffcf7e2845cdb0370d0c4a5d0ecca9bf5e45e09f5f15",
+      "license": "MIT",
+      "license_url": "https://raw.githubusercontent.com/typefully/agent-skills/main/LICENSE",
+      "license_files": [
+        {
+          "path": "agent/skills/typefully/LICENSE",
+          "sha256": "a369a750bac10542873ded09f2023a612e831bb0d85cb3e496071a27486b10cd"
+        }
+      ]
+    },
+    {
+      "name": "vercel-cli-with-tokens",
+      "path": "agent/skills/vercel-cli-with-tokens/SKILL.md",
+      "source": "https://github.com/vercel-labs/agent-skills.git",
+      "source_revision": "",
+      "sha256": "c06bea99e75eab07fde4fae26069baa002f82f39b53f07981704c2901551dd4c",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "vercel-composition-patterns",
+      "path": "agent/skills/vercel-composition-patterns/SKILL.md",
+      "source": "https://github.com/vercel-labs/agent-skills.git",
+      "source_revision": "",
+      "sha256": "e38e0eaa609316b10423a9a138ed95e35099accd3f735585295c8a8f165c28a3",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "vercel-optimize",
+      "path": "agent/skills/vercel-optimize/SKILL.md",
+      "source": "https://github.com/vercel-labs/agent-skills.git",
+      "source_revision": "",
+      "sha256": "e2c55eeab3a52b13a61140bd83c22e51152883e541ca87dc0c8cc546c43be9bb",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "vercel-react-best-practices",
+      "path": "agent/skills/vercel-react-best-practices/SKILL.md",
+      "source": "https://github.com/vercel-labs/agent-skills.git",
+      "source_revision": "",
+      "sha256": "71ed7794962fa6e803ee83030517b5b93a9f70fbfeb431ec4535c5480a8d8355",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "vercel-react-native-skills",
+      "path": "agent/skills/vercel-react-native-skills/SKILL.md",
+      "source": "https://github.com/vercel-labs/agent-skills.git",
+      "source_revision": "",
+      "sha256": "4012750a5ccbe064ca04af3835d5d1b011979d2d09d9b6df1c8128fac58e0a66",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "vercel-react-view-transitions",
+      "path": "agent/skills/vercel-react-view-transitions/SKILL.md",
+      "source": "https://github.com/vercel-labs/agent-skills.git",
+      "source_revision": "",
+      "sha256": "8c4c0f8b5581ef473fbf388b2df7d13e02d418ab2150a912b9b7eafdf4b76a01",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    },
+    {
+      "name": "web-artifacts-builder",
+      "path": "agent/skills/web-artifacts-builder/SKILL.md",
+      "source": null,
+      "source_revision": "",
+      "sha256": "4b937b6572321c502657a4ad229629befc5b993db6f0944031ee52458bd44850",
+      "license": "Apache-2.0",
+      "license_url": "https://raw.githubusercontent.com/anthropics/skills/main/skills/web-artifacts-builder/LICENSE.txt",
+      "license_files": [
+        {
+          "path": "agent/skills/web-artifacts-builder/LICENSE.txt",
+          "sha256": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362"
+        }
+      ]
+    },
+    {
+      "name": "web-design-guidelines",
+      "path": "agent/skills/web-design-guidelines/SKILL.md",
+      "source": "https://github.com/vercel-labs/agent-skills.git",
+      "source_revision": "",
+      "sha256": "f4647ca866a3accf763777f83e7682954f0187cd6bea7eea0399796652414e8f",
+      "license": "MIT declared; full license file absent upstream",
+      "license_url": null,
+      "license_files": []
+    }
+  ],
+  "all_loaded_skill_names": [
+    "Harness Ops",
+    "agent-browser",
+    "analyst",
+    "architect",
+    "auth",
+    "brainstorming",
+    "breezing",
+    "build:autonomous-all",
+    "build:fast",
+    "build:help",
+    "build:init",
+    "build:phase",
+    "build:quick",
+    "build:review",
+    "build:status",
+    "build:team-phase",
+    "building-native-ui",
+    "canvas-design",
+    "cc-cursor-cc",
+    "ci",
+    "ci-cd-fixer",
+    "code-factory",
+    "code-review-review-local-changes",
+    "code-review-review-pr",
+    "code-reviewer",
+    "codex-implementer",
+    "commands",
+    "critic",
+    "crud",
+    "customaize-agent-agent-evaluation",
+    "customaize-agent-apply-anthropic-skill-best-practices",
+    "customaize-agent-context-engineering",
+    "customaize-agent-create-command",
+    "customaize-agent-create-hook",
+    "customaize-agent-create-rule",
+    "customaize-agent-create-skill",
+    "customaize-agent-prompt-engineering",
+    "customaize-agent-test-prompt",
+    "customaize-agent-test-skill",
+    "customaize-agent-thought-based-reasoning",
+    "ddd-setup-code-formating",
+    "debugger",
+    "deploy",
+    "deploy-to-vercel",
+    "design-motion-principles",
+    "design-system",
+    "designer",
+    "developer",
+    "dispatching-parallel-agents",
+    "docs-update-docs",
+    "docs-write-concisely",
+    "documentor",
+    "error-recovery",
+    "excalidraw-diagram",
+    "executing-plans",
+    "explorer",
+    "expo-api-routes",
+    "expo-cicd-workflows",
+    "expo-deployment",
+    "expo-dev-client",
+    "expo-tailwind-setup",
+    "expo-ui-jetpack-compose",
+    "expo-ui-swiftui",
+    "find-skill",
+    "finishing-a-development-branch",
+    "fpf-actualize",
+    "fpf-decay",
+    "fpf-propose-hypotheses",
+    "fpf-query",
+    "fpf-reset",
+    "fpf-status",
+    "frontend",
+    "frontend-design",
+    "generate-slide",
+    "generate-video",
+    "git-analyze-issue",
+    "git-attach-review-to-pr",
+    "git-commit",
+    "git-compare-worktrees",
+    "git-create-pr",
+    "git-create-worktree",
+    "git-load-issues",
+    "git-merge-worktree",
+    "git-notes",
+    "git-worktrees",
+    "gitnexus-debugging",
+    "gitnexus-exploring",
+    "gitnexus-impact-analysis",
+    "gitnexus-pr-review",
+    "gitnexus-refactoring",
+    "go-developer",
+    "go-latest-version",
+    "go-performance",
+    "gogcli-ops",
+    "gws-calendar",
+    "gws-docs",
+    "gws-drive",
+    "gws-gmail",
+    "gws-shared",
+    "gws-slides",
+    "gws-tasks",
+    "harness-plan",
+    "harness-release",
+    "harness-review",
+    "harness-setup",
+    "harness-sync",
+    "harness-work",
+    "impeccable",
+    "integrator",
+    "interactive-shell",
+    "judge",
+    "kaizen-analyse",
+    "kaizen-analyse-problem",
+    "kaizen-cause-and-effect",
+    "kaizen-kaizen",
+    "kaizen-plan-do-check-act",
+    "kaizen-root-cause-tracing",
+    "kaizen-why",
+    "last30days",
+    "llm-wiki",
+    "mcp-build-mcp",
+    "mcp-builder",
+    "mcp-setup-arxiv-mcp",
+    "mcp-setup-codemap-cli",
+    "mcp-setup-context7-mcp",
+    "mcp-setup-serena-mcp",
+    "memory",
+    "memory-bank",
+    "microsoft-foundry",
+    "mobile",
+    "motion-design",
+    "native-data-fetching",
+    "notebooklm",
+    "pi-lens-ast-grep",
+    "pi-lens-lsp-navigation",
+    "pi-lens-write-ast-grep-rule",
+    "pi-lens-write-tree-sitter-rule",
+    "pi-processes",
+    "plan-analyst",
+    "plan-critic",
+    "planner",
+    "pm",
+    "pptx",
+    "principles",
+    "project-analyzer",
+    "project-scaffolder",
+    "project-state-updater",
+    "receiving-code-review",
+    "reflexion-critique",
+    "reflexion-memorize",
+    "reflexion-reflect",
+    "remotion-best-practices",
+    "replicate",
+    "requesting-code-review",
+    "researcher",
+    "revealjs",
+    "reviewer",
+    "sadd-do-and-judge",
+    "sadd-do-competitively",
+    "sadd-do-in-parallel",
+    "sadd-do-in-steps",
+    "sadd-judge",
+    "sadd-judge-with-debate",
+    "sadd-launch-sub-agent",
+    "sadd-multi-agent-patterns",
+    "sadd-subagent-driven-development",
+    "sadd-tree-of-thoughts",
+    "scaffolder",
+    "sdd-add-task",
+    "sdd-brainstorm",
+    "sdd-create-ideas",
+    "sdd-implement",
+    "sdd-plan",
+    "security",
+    "sentry-cli",
+    "session",
+    "session-control",
+    "session-init",
+    "session-memory",
+    "session-state",
+    "shadcn-ui",
+    "skill-creator",
+    "source-command-build-help",
+    "source-command-build-status",
+    "source-command-catchup",
+    "source-command-config",
+    "source-command-discuss",
+    "source-command-done",
+    "source-command-factory-help",
+    "source-command-install-skill",
+    "source-command-review",
+    "source-command-roadmap-sync",
+    "source-command-sdd",
+    "source-command-start",
+    "source-command-traceability-gen",
+    "source-command-work",
+    "subagent-driven-development",
+    "systematic-debugging",
+    "task-worker",
+    "tdd-fix-tests",
+    "tdd-test-driven-development",
+    "tdd-write-tests",
+    "tech-stack-add-typescript-best-practices",
+    "test-driven-development",
+    "tester",
+    "theme-factory",
+    "typefully",
+    "ui",
+    "upgrading-expo",
+    "use-dom",
+    "using-git-worktrees",
+    "using-superpowers",
+    "vercel-cli-with-tokens",
+    "vercel-composition-patterns",
+    "vercel-optimize",
+    "vercel-react-best-practices",
+    "vercel-react-native-skills",
+    "vercel-react-view-transitions",
+    "verification-before-completion",
+    "verifier",
+    "vibecoder-guide",
+    "video-scene-generator",
+    "web-artifacts-builder",
+    "web-design-guidelines",
+    "worker",
+    "workflow-guide",
+    "writing-plans",
+    "writing-skills"
+  ],
+  "privacy_changes": [
+    "Excluded authentication, device ID, account state, sessions, tasks, schedules, inspector state, project memory, caches, backups and old Git history.",
+    "Materialized skill links; normalized a local home-directory example; replaced two illustrative credential examples."
+  ],
+  "portability_changes": [
+    "Pinned dependency manifests to installed versions and retained lockfiles.",
+    "Used legacy peer resolution for plugins to preserve installed dependency tree.",
+    "Fixed panel patch installer CLI detection for symlinked paths; made regression tests portable."
+  ],
+  "verification": {
+    "core_files_equal": 1286,
+    "direct_plugin_files_equal_after_patches": 1900,
+    "resource_loader_errors": 0,
+    "inherited_skill_name_warnings": 10,
+    "gitleaks_findings": 0,
+    "private_credential_matches": 0
+  },
+  "skill_updates": {
+    "pptx": {
+      "revision": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "reason": "Replaced old restricted version with complete Apache-2.0 upstream source for public redistribution; system installation unchanged."
+    }
+  }
+}

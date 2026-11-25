@@ -1,0 +1,153 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "memory-bank-skill"
+dynamic = ["version"]
+description = "Universal long-term project memory + dev toolkit for AI coding clients (Claude Code, Cursor, Windsurf, Cline, Kilo, OpenCode, Codex, Pi Code)"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+  { name = "Anton Ivanov", email = "ruzaliasib1705@gmail.com" }
+]
+keywords = [
+  "memory-bank", "claude-code", "cursor", "windsurf", "cline", "opencode", "codex",
+  "ai-coding", "dev-tools", "llm-memory", "persistent-memory", "coding-agent",
+  "agent-skill", "tdd", "clean-architecture", "spec-driven-development",
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development",
+  "Topic :: Software Development :: Documentation",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Utilities",
+]
+dependencies = []
+
+[project.optional-dependencies]
+codegraph = [
+  "tree-sitter>=0.21",
+  "tree-sitter-python>=0.21",
+  "tree-sitter-go>=0.21",
+  "tree-sitter-javascript>=0.21",
+  "tree-sitter-typescript>=0.21",
+  "tree-sitter-rust>=0.21",
+  "tree-sitter-java>=0.21",
+  "networkx>=3.6,<3.7",
+]
+yaml = ["PyYAML>=6.0"]
+dev = ["pytest>=7", "pytest-cov>=4", "pytest-xdist>=3.5", "PyYAML>=6.0", "ruff>=0.5", "networkx>=3.6,<3.7"]
+docs = ["mkdocs>=1.6", "mkdocs-material>=9.5"]
+
+[dependency-groups]
+docs = ["mkdocs>=1.6", "mkdocs-material>=9.5"]
+
+[project.scripts]
+memory-bank = "memory_bank_skill.cli:main"
+
+[project.urls]
+Homepage = "https://fockus.github.io/skill-memory-bank/"
+Documentation = "https://fockus.github.io/skill-memory-bank/docs/"
+Repository = "https://github.com/fockus/skill-memory-bank"
+Issues = "https://github.com/fockus/skill-memory-bank/issues"
+Changelog = "https://github.com/fockus/skill-memory-bank/blob/main/CHANGELOG.md"
+
+# ═══ Hatch build configuration ═══
+
+[tool.hatch.version]
+path = "VERSION"
+pattern = "^(?P<version>.+)$"
+
+[tool.hatch.build]
+include = [
+  "memory_bank_skill/**/*.py",
+  "install.sh",
+  "uninstall.sh",
+  "VERSION",
+  "SKILL.md",
+  "CHANGELOG.md",
+  "README.md",
+  "adapters/*.sh",
+  "agents/*.md",
+  "commands/*.md",
+  "hooks/*.sh",
+  "rules/*.md",
+  "scripts/*.sh",
+  "scripts/*.py",
+  "references/**/*.md",
+  "settings/*.json",
+  "settings/*.py",
+  "docs/*.md",
+  "templates/**/*",
+  "flow-templates/**/*",
+  "workflows/*",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["memory_bank_skill"]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"install.sh" = "share/memory-bank-skill/install.sh"
+"uninstall.sh" = "share/memory-bank-skill/uninstall.sh"
+"VERSION" = "share/memory-bank-skill/VERSION"
+"SKILL.md" = "share/memory-bank-skill/SKILL.md"
+"adapters" = "share/memory-bank-skill/adapters"
+"agents" = "share/memory-bank-skill/agents"
+"commands" = "share/memory-bank-skill/commands"
+"hooks" = "share/memory-bank-skill/hooks"
+"rules" = "share/memory-bank-skill/rules"
+"scripts" = "share/memory-bank-skill/scripts"
+"references" = "share/memory-bank-skill/references"
+"settings" = "share/memory-bank-skill/settings"
+"templates" = "share/memory-bank-skill/templates"
+"flow-templates" = "share/memory-bank-skill/flow-templates"
+"workflows" = "share/memory-bank-skill/workflows"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/memory_bank_skill",
+  "/install.sh",
+  "/uninstall.sh",
+  "/VERSION",
+  "/SKILL.md",
+  "/README.md",
+  "/CHANGELOG.md",
+  "/LICENSE",
+  "/adapters",
+  "/agents",
+  "/commands",
+  "/hooks",
+  "/rules",
+  "/scripts",
+  "/references",
+  "/settings",
+  "/docs",
+  "/templates",
+  "/flow-templates",
+  "/workflows",
+  "/pyproject.toml",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = [
+  "E501",   # line-length handled by formatter
+  # UP031 (%-format → f-string) is a style preference, not a defect: 168 call
+  # sites across scripts/ and tests/, none of them autofixable (`--fix` and
+  # even `--unsafe-fixes` rewrite zero). Rewriting them by hand buys nothing
+  # and risks a silent format-string regression in every touched script.
+  "UP031",
+]

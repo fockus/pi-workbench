@@ -1,0 +1,243 @@
+#!/usr/bin/env python3
+"""Build .memory-bank/index.json — pragmatic frontmatter index.
+
+Usage:
+    mb-index-json.py <mb_path>
+
+Scans <mb_path>/notes/ for markdown files with YAML frontmatter
+(``type``, ``tags``, ``importance``) plus a summary (first 2 non-empty
+body lines after the frontmatter), and parses <mb_path>/lessons.md for
+``### L-NNN: Title`` entries. Writes ``<mb_path>/index.json`` atomically
+(tmp file + os.replace).
+
+Shape::
+
+    {
+      "notes":   [{"path","type","tags","importance","summary"}, ...],
+      "lessons": [{"id","title"}, ...],
+      "generated_at": "ISO8601 UTC"
+    }
+"""
+
+from __future__ import annotations
+
+import contextlib
+import json
+import os
+import re
+import sys
+from pathlib import Path
+from typing import Any
+
+if __name__ == "__main__":  # re-exec under an interpreter that can import the package
+    # Explicit: `python3 -P` / `-I` / PYTHONSAFEPATH do not put the script dir on sys.path.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from _mb_skill_python import ensure_skill_python
+
+    ensure_skill_python(__file__)
+
+from datetime import UTC, datetime  # noqa: E402  (3.11+: must follow the bootstrap)
+
+# Prefer this source bundle before Python caches an older installed package.
+# Wheel layouts have no package under this root and use their site-packages copy.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from memory_bank_skill._io import atomic_write  # noqa: E402
+from memory_bank_skill.private import strip_private as _strip_private  # noqa: E402
+
+FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n?(.*)$", re.DOTALL)
+LESSON_RE = re.compile(r"^#{2,3}[ \t]+(L-\d+)[:\- \t]+(\S[^\r\n]*?)[ \t]*$", re.MULTILINE)
+_KEBAB_RE_1 = re.compile(r"(.)([A-Z][a-z]+)")
+_KEBAB_RE_2 = re.compile(r"([a-z0-9])([A-Z])")
+
+
+def _kebab_case(s: str) -> str:
+    """camelCase/PascalCase/UPPER → kebab-case (lowercase with hyphens)."""
+    s = str(s).strip().strip("\"'")
+    s = _KEBAB_RE_1.sub(r"\1-\2", s)
+    s = _KEBAB_RE_2.sub(r"\1-\2", s)
+    return s.lower()
+
+
+def _parse_frontmatter(text: str) -> tuple[dict[str, Any], str]:
+    """Return (metadata, body). If parse fails → ({}, original text)."""
+    m = FRONTMATTER_RE.match(text)
+    if not m:
+        return {}, text
+    raw, body = m.group(1), m.group(2)
+    try:
+        import yaml  # noqa: PLC0415
+    except ImportError:
+        meta = _simple_yaml_parse(raw)
+    else:
+        try:
+            meta = yaml.safe_load(raw) or {}
+            if not isinstance(meta, dict):
+                meta = {}
+        except Exception:  # noqa: BLE001 — malformed frontmatter → defaults
+            meta = _simple_yaml_parse(raw)
+    return meta, body
+
+
+def _simple_yaml_parse(raw: str) -> dict[str, Any]:
+    """Tiny fallback YAML: handles `key: value` and `key: [a, b]`.
+
+    Not full YAML — good enough for well-formed frontmatter when PyYAML
+    is unavailable or full parse fails.
+    """
+    result: dict[str, Any] = {}
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or ":" not in line:
+            continue
+        key, _, value = line.partition(":")
+        key, value = key.strip(), value.strip()
+        if not key:
+            continue
+        if value.startswith("[") and value.endswith("]"):
+            inner = value[1:-1].strip()
+            if not inner:
+                result[key] = []
+            else:
+                result[key] = [v.strip().strip("\"'") for v in inner.split(",")]
+        elif value:
+            result[key] = value.strip("\"'")
+    return result
+
+
+def _summary(body: str, max_lines: int = 2) -> str:
+    lines: list[str] = []
+    for raw in body.splitlines():
+        stripped = raw.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("#"):
+            continue
+        lines.append(stripped)
+        if len(lines) >= max_lines:
+            break
+    return " ".join(lines)
+
+
+def _index_notes(mb_path: Path) -> list[dict[str, Any]]:
+    notes_dir = mb_path / "notes"
+    if not notes_dir.is_dir():
+        return []
+
+    entries: list[dict[str, Any]] = []
+    for note in sorted(notes_dir.rglob("*.md")):
+        try:
+            text = note.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+
+        meta, body = _parse_frontmatter(text)
+        tags = meta.get("tags") or []
+        if isinstance(tags, str):
+            tags = [tags]
+        # Protection: do not index tags containing PII markers.
+        tags = [t for t in tags if "<private>" not in str(t) and "</private>" not in str(t)]
+        # Normalize: lowercase + kebab-case (camelCase/PascalCase/UPPER → foo-bar).
+        tags = [_kebab_case(t) for t in tags]
+        # Dedup preserving order.
+        seen: set[str] = set()
+        tags = [t for t in tags if not (t in seen or seen.add(t))]
+
+        clean_body, has_private = _strip_private(body)
+
+        rel = note.relative_to(mb_path).as_posix()
+        # `notes/archive/...` entries get `archived: True` (opt in through `--include-archived`)
+        archived = rel.startswith("notes/archive/")
+        entries.append(
+            {
+                "path": rel,
+                "type": meta.get("type") or "note",
+                "tags": list(tags),
+                "importance": meta.get("importance"),
+                "summary": _summary(clean_body),
+                "has_private": has_private,
+                "archived": archived,
+            }
+        )
+    return entries
+
+
+def _index_lessons(mb_path: Path) -> list[dict[str, str]]:
+    lessons_file = mb_path / "lessons.md"
+    if not lessons_file.is_file():
+        return []
+
+    text, _ = _strip_private(lessons_file.read_text(encoding="utf-8"))
+    return [{"id": m.group(1), "title": m.group(2).strip()} for m in LESSON_RE.finditer(text)]
+
+
+def _preserved_keys(mb_path: Path) -> dict[str, Any]:
+    """Read keys that must survive a full rebuild from the existing index.json.
+
+    The hash chain (``progress_chain``, handoff-v2 §6) lives in index.json but is
+    owned by ``mb-progress-chain.sh``, not this builder. A rebuild must NOT clobber
+    it (design §9 risk row).
+
+    If the existing ``index.json`` is **malformed** (present but not parseable as a
+    dict), the corrupt file is preserved as ``index.json.bak`` before being
+    overwritten.  This mirrors ``progress_chain.rebuild_tail``'s backup behaviour
+    and keeps the chain recoverable for post-mortem inspection (finding #2 residual).
+
+    Returns ``{}`` on absent or malformed files — never raises.
+    """
+    target = mb_path / "index.json"
+    if not target.is_file():
+        return {}
+    try:
+        raw = target.read_text(encoding="utf-8")
+        prior = json.loads(raw)
+    except (OSError, ValueError):
+        # Malformed: back up the corrupt file so chain data is not silently lost.
+        bak = Path(str(target) + ".bak")
+        with contextlib.suppress(OSError):
+            os.replace(str(target), str(bak))
+        return {}
+    if not isinstance(prior, dict):
+        bak = Path(str(target) + ".bak")
+        with contextlib.suppress(OSError):
+            os.replace(str(target), str(bak))
+        return {}
+    preserved: dict[str, Any] = {}
+    if "progress_chain" in prior:
+        preserved["progress_chain"] = prior["progress_chain"]
+    return preserved
+
+
+def build_index(mb_path_str: str) -> dict[str, Any]:
+    """Scan mb_path, write index.json atomically, return the index data."""
+    mb_path = Path(mb_path_str)
+    if not mb_path.is_dir():
+        raise FileNotFoundError(f"Memory Bank path not found: {mb_path}")
+
+    data: dict[str, Any] = {
+        "notes": _index_notes(mb_path),
+        "lessons": _index_lessons(mb_path),
+        "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    # Preserve externally-owned keys (e.g. progress_chain) across the rebuild.
+    data.update(_preserved_keys(mb_path))
+
+    target = mb_path / "index.json"
+    atomic_write(target, json.dumps(data, indent=2, ensure_ascii=False, sort_keys=False))
+
+    return data
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) != 2:
+        print(f"Usage: {argv[0]} <mb_path>", file=sys.stderr)
+        return 1
+    try:
+        build_index(argv[1])
+    except FileNotFoundError as e:
+        print(f"[error] {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

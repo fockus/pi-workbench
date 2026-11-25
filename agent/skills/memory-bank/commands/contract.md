@@ -1,0 +1,67 @@
+---
+description: "Contract-First — defines the interface, writes contract tests, then implements. Use when building a new component or port and the abstraction must come before the code."
+allowed-tools: [Read, Glob, Grep, Bash, Edit, Write]
+argument-hint: <module-or-interface-name>
+---
+
+# Contract-First: $ARGUMENTS
+
+## 0. Validate arguments
+
+If `$ARGUMENTS` is empty, stop and ask the user for the module / interface name to design. Do not proceed with an empty target.
+
+## 1. Analysis
+
+- Study the existing interfaces and contracts in the project
+- Read `./.memory-bank/roadmap.md` and any ADRs if they exist
+- Determine which layers are affected (`handler` / `service` / `repository` / `infra`)
+
+## 2. Define the contract
+
+Show me first:
+
+- The interface (method signatures, input/output types)
+- Usage examples (Specification by Example): concrete inputs → expected outputs
+- Failure scenarios: what can go wrong → which errors are returned
+
+**Ask for confirmation before continuing.**
+
+## 2a. Executable contract file
+
+For a plan stage, spec task or `/mb team` track, write the contract as `<bank>/contracts/<id>.md` — the form the
+verifier and the team commit gate run (`scripts/mb_contract.py`, format in its header):
+
+```markdown
+**Covers:** REQ-001, REQ-002
+## spec
+- REQ-002 recovery only through an operator — `go test -v -run '^TestRecovery_REQ_002$' ./internal/access` — exit: 0; output~: --- PASS: TestRecovery_REQ_002
+## rules
+- lint on new code — `make lint-new` — exit: 0
+- no domain→infra import — `grep -rn "infrastructure" internal/domain || true` — output-empty
+## dod
+- README documents the endpoint — manual: reviewer reads README
+```
+
+Then `python3 <skill>/scripts/mb_contract.py freeze <contract>`: every spec item must fail now (red evidence goes
+to `<contract>.lock.json`). Anchor spec items on the test's own output: `go test -run X` exits 0 when no test
+matches. The executor never edits it; a change needs `freeze --amend --reason R` (recorded, listed by `run`).
+
+## 3. Contract tests
+
+After the contract is approved:
+
+- Write tests for the interface (Testing Trophy: prioritize integration tests)
+- Tests must verify the contract, not the implementation
+- Tests should fail first (the implementation does not exist yet)
+- Run them and make sure they fail for the right reason
+
+## 4. Implementation
+
+- Implement the interface
+- Run the contract tests — all must pass
+- Contract tests must NOT change during implementation. If you need to change them, the contract was defined incorrectly; go back to step 2
+
+## 5. Finalization
+
+- Run the full test suite
+- If Memory Bank is active, add a note in `notes/`

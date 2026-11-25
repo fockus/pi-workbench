@@ -1,0 +1,194 @@
+#!/usr/bin/env python3
+"""Query Memory Bank code graph JSONL files."""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+if __name__ == "__main__":  # re-exec under an interpreter that can import the package
+    # Explicit: `python3 -P` / `-I` / PYTHONSAFEPATH do not put the script dir on sys.path.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from _mb_skill_python import ensure_skill_python
+
+    ensure_skill_python(__file__)
+
+from mb_graph_query_core import (
+    EXIT_INVALID_INPUT,
+    EXIT_MISSING_GRAPH,
+    EXIT_NO_MATCH,
+    EXIT_OK,
+    error_payload,
+    impact_payload,
+    load_graph,
+    neighbors_payload,
+    print_json,
+    tests_payload,
+)
+from mb_graph_query_render import markdown_explain, write_summary_files
+
+
+def selector(args: argparse.Namespace) -> tuple[str | None, str | None]:
+    symbol = getattr(args, "symbol", None)
+    file_name = getattr(args, "file", None)
+    if bool(symbol) == bool(file_name):
+        raise ValueError("provide exactly one of --symbol or --file")
+    return symbol, file_name
+
+
+def add_common(parser: argparse.ArgumentParser, *, selector_required: bool = True) -> None:
+    parser.add_argument("--graph", required=True, help="Path to .memory-bank/codebase/graph.json")
+    parser.add_argument("--json", action="store_true", help="Emit JSON")
+    if selector_required:
+        group = parser.add_mutually_exclusive_group(required=False)
+        group.add_argument("--symbol", help="Symbol name to query")
+        group.add_argument("--file", help="File path to query")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Query Memory Bank graph.json JSONL files")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    for name in ("neighbors", "impact", "tests", "explain"):
+        add_common(sub.add_parser(name))
+    sub.choices["neighbors"].add_argument(
+        "--direction",
+        choices=("in", "out", "both"),
+        default="both",
+        help="in = callers of the symbol only (who-calls); out = what it uses",
+    )
+
+    summary = sub.add_parser("summary")
+    add_common(summary, selector_required=False)
+    summary.add_argument(
+        "--out-dir",
+        required=True,
+        help="Directory for GRAPH_SUMMARY.md, IMPACT_MAP.md, TEST_LINKS.md",
+    )
+
+    status = sub.add_parser("status")
+    status.add_argument("--graph", required=True, help="Path to graph.json")
+    status.add_argument("--src-root", default=".", help="Repo root for git-HEAD staleness")
+    status.add_argument("--json", action="store_true", help="Emit JSON")
+
+    catchup = sub.add_parser("catchup")
+    catchup.add_argument("--graph", required=True, help="Path to graph.json")
+    catchup.add_argument("--src-root", default=None, help="Repo root (default: graph meta)")
+    catchup.add_argument("--budget", type=float, default=None, help="Rebuild budget, seconds")
+    catchup.add_argument("--json", action="store_true", help="Emit JSON")
+    return parser
+
+
+def _maybe_catchup(graph: str, src_root: str | None = None, budget: float | None = None) -> dict:
+    """Bounded inline catch-up (I-133) — fail-open: a query must never break
+    because the refresh machinery had a bad day."""
+    try:
+        from memory_bank_skill.codegraph_catchup import maybe_catchup
+
+        return maybe_catchup(graph, src_root, budget)
+    except Exception:
+        return {"result": "error"}
+
+
+def _render_status_md(info: dict) -> str:
+    if not info["exists"]:
+        return "Code graph: not built"
+    if info["stale"]:
+        detail = info["reason"]
+        if info["reason"] == "age" and info["age_hours"] is not None:
+            detail = f"age {info['age_hours']:.0f}h"
+        elif info["reason"] == "commits" and info["commits_behind"] is not None:
+            detail = f"{info['commits_behind']} commits behind"
+        return f"Code graph: stale ({detail})"
+    age = f"age {info['age_hours']:.0f}h" if info["age_hours"] is not None else "age n/a"
+    behind = "" if info["commits_behind"] is None else f", {info['commits_behind']} commits behind"
+    return f"Code graph: fresh ({age}{behind})"
+
+
+def _run_status(args: argparse.Namespace) -> int:
+    # Lazy import: only the `status` subcommand needs freshness, so an older
+    # installed package that has codegraph_loader but not codegraph_freshness still
+    # runs neighbors/impact/tests/summary — only `status` degrades, never all of them.
+    from memory_bank_skill.codegraph_freshness import env_thresholds, graph_freshness
+
+    hours, commits = env_thresholds()
+    info = graph_freshness(args.graph, args.src_root, stale_hours=hours, stale_commits=commits)
+    if args.json:
+        print_json(info)
+    else:
+        print(_render_status_md(info))
+    return EXIT_OK if info["exists"] else EXIT_MISSING_GRAPH
+
+
+def run(args: argparse.Namespace) -> int:
+    if args.command == "status":
+        return _run_status(args)
+    if args.command == "catchup":
+        print_json(_maybe_catchup(args.graph, args.src_root, args.budget))
+        return EXIT_OK  # fail-safe for hook callers: catchup itself never fails the call
+    # I-133: consume the dirty-queue BEFORE loading, so the query answers on the
+    # refreshed graph. Bounded + locked + cooldown inside; worst case → stale.
+    catchup_state = _maybe_catchup(args.graph)
+    try:
+        nodes, edges = load_graph(Path(args.graph))
+    except FileNotFoundError as exc:
+        print_json(error_payload("missing_graph", str(exc)))
+        return EXIT_MISSING_GRAPH
+    except ValueError as exc:
+        print_json(error_payload("invalid_graph", str(exc)))
+        return EXIT_INVALID_INPUT
+
+    try:
+        if args.command == "summary":
+            written = write_summary_files(nodes, edges, Path(args.out_dir))
+            payload = {"ok": True, "written": written, "nodes": len(nodes), "edges": len(edges)}
+            if args.json:
+                print_json(payload)
+            else:
+                print("\n".join(written))
+            return EXIT_OK
+
+        symbol, file_name = selector(args)
+    except ValueError as exc:
+        print_json(error_payload("invalid_input", str(exc)))
+        return EXIT_INVALID_INPUT
+
+    if args.command == "neighbors":
+        payload = neighbors_payload(nodes, edges, symbol, file_name, args.direction)
+    elif args.command == "impact":
+        payload = impact_payload(nodes, edges, symbol, file_name)
+    elif args.command == "tests":
+        payload = tests_payload(nodes, edges, symbol, file_name)
+    elif args.command == "explain":
+        payload = impact_payload(nodes, edges, symbol, file_name)
+    else:
+        print_json(error_payload("invalid_input", f"unknown command: {args.command}"))
+        return EXIT_INVALID_INPUT
+
+    # Surface a non-clean catch-up outcome (additive key — consumers filter by
+    # the keys they know; a stale answer must say it is stale, not pass as fresh).
+    if catchup_state.get("result") not in ("clean", "disabled", "refreshed"):
+        payload["graph_catchup"] = catchup_state
+
+    if args.command == "explain" and not args.json:
+        print(markdown_explain(payload))
+        if payload.get("graph_catchup"):
+            print(
+                f"[warn] graph catch-up: {catchup_state['result']} — answer may be stale; "
+                "refresh with /mb graph --apply",
+                file=sys.stderr,
+            )
+    else:
+        print_json(payload)
+    return EXIT_OK if payload.get("ok") else EXIT_NO_MATCH
+
+
+def main(argv: list[str]) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv[1:])
+    return run(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

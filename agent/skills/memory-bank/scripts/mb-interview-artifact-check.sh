@@ -1,0 +1,437 @@
+#!/usr/bin/env bash
+# mb-interview-artifact-check.sh — deterministic structural validator for the
+# /mb discuss interview artifacts (design C8, NFR-002). No LLM.
+#
+# Usage:
+#   mb-interview-artifact-check.sh plan <file> [--require-closed] [--print-digest]
+#   mb-interview-artifact-check.sh transcript <file> [--require-inherited] [--legacy-live-fixture] [--print-digest]
+#
+# `plan` validates <bank>/tmp/interview-plan-<topic>.md against C2: required
+# headings in order, checkbox-only bullets under Topics/Discovered, a non-empty
+# Topics, and (with --require-closed) zero open `- [ ]` items.
+#
+# `transcript` mode validates context/<topic>-interview.md against the C4 grammar
+# (rules 1–8). --require-inherited demands `## Унаследовано` before `## Q&A`.
+# --legacy-live-fixture relaxes the answer/rejected rules to legacy file-level
+# semantics, ONLY for the two frozen regression fixtures.
+#
+# stdout : `artifact=ok|invalid open_topics=<N>` (open_topics only for plan),
+#          plus ` digest=<sha256>` with --print-digest — the hash of exactly the
+#          bytes this run validated, so a caller can prove the file it generates
+#          from is still the one that passed (C8 + r5 review [2]). The field is
+#          opt-in: without the flag the stdout line is byte-identical to before.
+# stderr : one `<file>:<line>:<reason>` per finding, sorted by (line, order).
+#          Usage -> `error=usage`; unreadable -> `<file>:0:unreadable` (both with
+#          empty stdout); forbidden flag -> `<file>:0:legacy_fixture_forbidden`.
+# exit   : 0 valid · 1 invalid/open · 2 usage or read error.
+
+set -euo pipefail
+
+# Physical self-directory through the FULL symlink chain (no realpath on bare
+# macOS): otherwise a symlinked invocation relocates REPO_ROOT — and with it the
+# legacy-fixture whitelist — into an attacker tree.
+_mb_resolve_self_dir() {
+  local src="$1" dir
+  while [ -h "$src" ]; do
+    dir="$(cd -P "$(dirname "$src")" 2>/dev/null && pwd)"
+    src="$(readlink "$src")"
+    case "$src" in
+      /*) ;;
+      *) src="$dir/$src" ;;
+    esac
+  done
+  cd -P "$(dirname "$src")" 2>/dev/null && pwd
+}
+SCRIPT_DIR="$(_mb_resolve_self_dir "$0")"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+usage_error() { printf 'error=usage\n' >&2; exit 2; }
+
+# canon_path <path> — physical absolute path of an EXISTING file, so a spoofed
+# basename elsewhere cannot masquerade as a frozen regression fixture.
+canon_path() {
+  local p="$1" d b
+  [ -e "$p" ] || return 1
+  d="$(cd "$(dirname "$p")" 2>/dev/null && pwd -P)" || return 1
+  b="$(basename "$p")"
+  printf '%s/%s\n' "$d" "$b"
+}
+
+MODE="${1:-}"
+[ -n "$MODE" ] || usage_error
+shift
+
+FILE=""
+REQUIRE_CLOSED=0
+REQUIRE_INHERITED=0
+LEGACY_FIXTURE=0
+PRINT_DIGEST=0
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --require-closed) REQUIRE_CLOSED=1 ;;
+    --require-inherited) REQUIRE_INHERITED=1 ;;
+    --legacy-live-fixture) LEGACY_FIXTURE=1 ;;
+    --print-digest) PRINT_DIGEST=1 ;;
+    --*) usage_error ;;
+    *)
+      [ -z "$FILE" ] || usage_error
+      FILE="$1"
+      ;;
+  esac
+  shift
+done
+[ -n "$FILE" ] || usage_error
+
+case "$MODE" in
+  plan)
+    [ "$REQUIRE_INHERITED" -eq 0 ] || usage_error
+    [ "$LEGACY_FIXTURE" -eq 0 ] || usage_error
+    ;;
+  transcript)
+    [ "$REQUIRE_CLOSED" -eq 0 ] || usage_error
+    if [ "$LEGACY_FIXTURE" -eq 1 ]; then
+      # Legacy relaxation is allowed ONLY for the two frozen regression
+      # fixtures, matched by canonical path — never by basename, so a renamed
+      # copy or a publication candidate cannot borrow the weaker grammar.
+      _fc="$(canon_path "$FILE")" || _fc=""
+      _f1="$(canon_path "$REPO_ROOT/.memory-bank/context/sdd-vision-pipeline-interview.md")" || _f1=""
+      _f2="$(canon_path "$REPO_ROOT/.memory-bank/context/svp-interview-upgrade-interview.md")" || _f2=""
+      if [ -z "$_fc" ] || { [ "$_fc" != "$_f1" ] && [ "$_fc" != "$_f2" ]; }; then
+        printf '%s:0:legacy_fixture_forbidden\n' "$FILE" >&2; exit 2
+      fi
+    fi
+    ;;
+  *)
+    usage_error
+    ;;
+esac
+
+if [ ! -f "$FILE" ] || [ ! -r "$FILE" ]; then
+  printf '%s:0:unreadable\n' "$FILE" >&2
+  exit 2
+fi
+
+# PARSE_FILE is what the grammar actually reads; FILE stays the name every
+# finding is reported under.
+#
+# With --print-digest the two differ: the file is SNAPSHOT first, the snapshot
+# is parsed, and the digest is the snapshot's. The verdict and the digest then
+# provably describe the same bytes. Taking the digest by re-opening the path
+# after the parse would reintroduce the very race the flag exists to close —
+# `<bank>/tmp/interview-plan-<topic>.md` is shared, and a second `/mb discuss`
+# on the same topic rewrites it (r5 review [2]).
+PARSE_FILE="$FILE"
+DIGEST=""
+_snap=""
+_cleanup_snap() { [ -n "$_snap" ] && rm -f "$_snap" 2>/dev/null; return 0; }
+if [ "$PRINT_DIGEST" -eq 1 ]; then
+  _snap="$(mktemp "${TMPDIR:-/tmp}/mb-artifact-snap.XXXXXX")" || {
+    printf '%s:0:unreadable\n' "$FILE" >&2; exit 2; }
+  trap _cleanup_snap EXIT
+  cp "$FILE" "$_snap" 2>/dev/null || { printf '%s:0:unreadable\n' "$FILE" >&2; exit 2; }
+  PARSE_FILE="$_snap"
+  DIGEST="$(MB_SNAP="$_snap" python3 -c 'import hashlib, os, sys
+h = hashlib.sha256()
+with open(os.environ["MB_SNAP"], "rb") as fh:
+    for chunk in iter(lambda: fh.read(65536), b""):
+        h.update(chunk)
+sys.stdout.write(h.hexdigest())')" || { printf '%s:0:unreadable\n' "$FILE" >&2; exit 2; }
+  [ -n "$DIGEST" ] || { printf '%s:0:unreadable\n' "$FILE" >&2; exit 2; }
+fi
+
+# Findings (F <line> <order> <reason>) -> sort by (line,order) -> render.
+render_findings() {
+  # $1 = parse output; $2 = open_count
+  local parse="$1" open_count="$2" ff suffix=""
+  [ -n "$DIGEST" ] && suffix=" digest=$DIGEST"
+  ff="$(mktemp "${TMPDIR:-/tmp}/mb-artifact-find.XXXXXX")"
+  printf '%s\n' "$parse" | sed -n 's/^F //p' >> "$ff"
+  if [ -s "$ff" ]; then
+    sort -k1,1n -k2,2n "$ff" | while read -r ln _order reason; do
+      [ -n "$reason" ] || continue
+      printf '%s:%s:%s\n' "$FILE" "$ln" "$reason" >&2
+    done
+    rm -f "$ff"
+    printf 'artifact=invalid open_topics=%d%s\n' "$open_count" "$suffix"
+    return 1
+  fi
+  rm -f "$ff"
+  printf 'artifact=ok open_topics=%d%s\n' "$open_count" "$suffix"
+  return 0
+}
+
+run_plan() {
+  local parse open_count
+  parse="$(
+    awk '
+      { lines[NR] = $0 }
+      # Well-formed checkbox items directly under a section heading.
+      function count_items(start,   j, n) {
+        n = 0
+        for (j = start + 1; j <= NR; j++) {
+          if (lines[j] ~ /^## /) break
+          if (lines[j] ~ /^- \[[ x]\][ \t]+[^ \t]/) n++
+        }
+        return n
+      }
+      function scan_section(start,   j) {
+        if (start == 0) return
+        for (j = start + 1; j <= NR; j++) {
+          if (lines[j] ~ /^## /) return
+          # Blank / whitespace-only rows are the separators used by the template.
+          if (lines[j] ~ /^[ \t]*$/) continue
+          if (lines[j] ~ /^- \[[ x]\][ \t]+[^ \t]/) {
+            if (lines[j] ~ /^- \[ \]/) printf "O %d\n", j
+            continue
+          }
+          # EVERY other nonblank row is malformed, not just column-1 bullets:
+          # prose/numbered/INDENTED items used to pass --require-closed as
+          # open_topics=0 (REQ-002 bypass). C8 declares ONE code -> bad_bullet.
+          printf "F %d 3 bad_bullet\n", j
+        }
+      }
+      END {
+        h_inh = 0; h_top = 0; h_dis = 0
+        n_inh = 0; n_top = 0; n_dis = 0
+        ndup = 0; nscan = 0; nunk = 0
+        for (i = 1; i <= NR; i++) {
+          l = lines[i]
+          if (l ~ /^## Inherited decisions \(do not re-ask\)[ \t]*$/) {
+            n_inh++
+            if (n_inh == 1) h_inh = i; else { ndup++; dupline[ndup] = i }
+            continue
+          }
+          if (l ~ /^## Topics[ \t]*$/) {
+            n_top++
+            if (n_top == 1) h_top = i; else { ndup++; dupline[ndup] = i }
+            nscan++; scanat[nscan] = i
+            continue
+          }
+          if (l ~ /^## Discovered mid-interview[ \t]*$/) {
+            n_dis++
+            if (n_dis == 1) h_dis = i; else { ndup++; dupline[ndup] = i }
+            nscan++; scanat[nscan] = i
+            continue
+          }
+          # ANY other level-2 heading is rejected: scan_section stops at every
+          # `## `, so an unknown section hid its open items from the close gate.
+          if (l ~ /^## /) { nunk++; unkline[nunk] = i }
+        }
+        if (h_inh == 0) printf "F 0 1 missing_section\n"
+        if (h_top == 0) printf "F 0 1 missing_section\n"
+        if (h_dis == 0) printf "F 0 1 missing_section\n"
+        # C2 declares each heading EXACTLY ONCE in a fixed order; a repeat hid
+        # the items of a repeated section from --require-closed entirely.
+        for (k = 1; k <= ndup; k++) printf "F %d 2 section_out_of_order\n", dupline[k]
+        for (k = 1; k <= nunk; k++) printf "F %d 2 section_out_of_order\n", unkline[k]
+        if (h_inh > 0 && h_top > 0 && h_dis > 0) {
+          if (h_top < h_inh) printf "F %d 2 section_out_of_order\n", h_top
+          if (h_dis < h_top) printf "F %d 2 section_out_of_order\n", h_dis
+        }
+        # Scan EVERY Topics/Discovered occurrence, duplicates included, so no
+        # checkbox escapes the bullet grammar or the open-topic count.
+        for (k = 1; k <= nscan; k++) scan_section(scanat[k])
+        # REQ-001: an empty Topics is not a closed plan (Discovered may be empty).
+        if (h_top > 0 && count_items(h_top) == 0) printf "F %d 1 missing_section\n", h_top
+      }
+    ' "$PARSE_FILE"
+  )"
+  open_count="$(printf '%s\n' "$parse" | grep -c '^O ' || true)"
+  if [ "$REQUIRE_CLOSED" -eq 1 ] && [ "$open_count" -gt 0 ]; then
+    parse="$parse
+$(printf '%s\n' "$parse" | sed -n 's/^O \([0-9]*\)$/F \1 4 open_topics/p')"
+  fi
+  render_findings "$parse" "$open_count"
+}
+
+run_transcript() {
+  local parse
+  parse="$(
+    awk -v reqinh="$REQUIRE_INHERITED" -v legacy="$LEGACY_FIXTURE" '
+      function isdate(s,   y, m, d, dim) {
+        if (s !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/) return 0
+        y = substr(s, 1, 4) + 0; m = substr(s, 6, 2) + 0; d = substr(s, 9, 2) + 0
+        if (m < 1 || m > 12) return 0
+        dim = 31
+        if (m == 4 || m == 6 || m == 9 || m == 11) dim = 30
+        else if (m == 2) { dim = 28; if ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0)) dim = 29 }
+        if (d < 1 || d > dim) return 0
+        return 1
+      }
+      function next_boundary(start,   j) {
+        for (j = start + 1; j <= NR; j++) {
+          if (raw[j] ~ /^\*\*Q[0-9]+/) return j
+          if (raw[j] ~ /^\*\*Финальный гейт/) return j
+          if (raw[j] ~ /^## /) return j
+        }
+        return NR + 1
+      }
+      function round_of(line,   s) {
+        if (match(line, /круг [0-9]+/)) { s = substr(line, RSTART, RLENGTH); sub(/круг /, "", s); return s + 0 }
+        return -1
+      }
+      function has_answer(bs, be, qn,   j, apat) {
+        # C4 rule 5: `^**A<N>.** ` — required space separator + non-blank content.
+        apat = "^\\*\\*A" qn "\\.\\*\\*[ \t]+[^ \t]"
+        for (j = bs; j <= be; j++) {
+          if (raw[j] ~ apat) return 1
+          # `.+`, not `[^»]+`: in the C locale that bracket excludes the BYTES of
+          # «»» (C2 BB), and BB is also the second byte of Cyrillic «л».
+          if (legacy == "1" && raw[j] ~ /Ответ голосом \(суть\): «.+»/) return 1
+          if (legacy == "1" && raw[j] ~ /пользователь: «.+»/) return 1
+        }
+        return 0
+      }
+      function answer_line(bs, be, qn,   j, apat) {
+        # First strict answer-marker line in the block (0 if none) — the point
+        # from which rejected-alternatives are honoured (rule 7, answer part).
+        apat = "^\\*\\*A" qn "\\.\\*\\*[ \t]+[^ \t]"
+        for (j = bs; j <= be; j++) if (raw[j] ~ apat) return j
+        return 0
+      }
+      function has_decision(bs, be,   j) {
+        for (j = bs; j <= be; j++) if (raw[j] ~ /\*\*([A-Za-z0-9]+-)?D-[0-9][0-9]+\*\*/) return 1
+        return 0
+      }
+      function has_rejected(bs, be,   j) {
+        for (j = bs; j <= be; j++) if (raw[j] ~ /(Отклонено|Rejected):[ \t]*[^ \t]/) return 1
+        return 0
+      }
+      { raw[NR] = $0 }
+      END {
+        qa_count = 0; qa_line = 0; second_qa = 0; inh_line = 0; rej_section = 0; inline_rej = 0
+        n_inh = 0; second_inh = 0
+        qmal = 0; gmal = 0
+        for (i = 1; i <= NR; i++) {
+          if (raw[i] ~ /^## Q&A[ \t]*$/) { qa_count++; if (qa_count == 1) qa_line = i; else if (qa_count == 2) second_qa = i }
+          # EXACT heading only (`## УнаследованоBROKEN` used to satisfy
+          # --require-inherited), and EVERY occurrence counted (r3 [22]).
+          if (raw[i] ~ /^## Унаследовано([ \t].*)?$/) {
+            n_inh++
+            if (n_inh == 1) inh_line = i; else second_inh = i
+          }
+          if (raw[i] ~ /^## Отклонённые альтернативы/) rej_section = 1
+          if (raw[i] ~ /(Отклонено|Rejected):[ \t]*[^ \t]/) inline_rej = 1
+        }
+
+        # 1. title
+        ti = 0
+        for (i = 1; i <= NR; i++) { if (raw[i] !~ /^[ \t]*$/) { ti = i; break } }
+        tl = 1; if (ti > 0) tl = ti
+        if (ti > 0 && raw[ti] ~ /^# Interview transcript: .+ \([^,)]+(,[^)]*)?\)$/) {
+          match(raw[ti], /\([^,)]+/)
+          head = substr(raw[ti], RSTART + 1, RLENGTH - 1)
+          if (!isdate(head)) print "F " ti " 2 bad_date"
+        } else {
+          print "F " tl " 1 missing_title"
+        }
+
+        # 2. Q&A section
+        if (qa_count == 0) print "F 1 3 missing_qa_section"
+        if (qa_count >= 2) print "F " second_qa " 4 duplicate_qa_section"
+
+        # 3. inherited. A duplicate is rejected regardless of --require-inherited:
+        # the ambiguity exists in the file either way.
+        if (n_inh >= 2) print "F " second_inh " 5 duplicate_inherited"
+        if (reqinh == "1") {
+          if (inh_line == 0) print "F 1 5 missing_inherited"
+          else if (qa_line > 0 && inh_line > qa_line) print "F " inh_line " 6 inherited_after_qa"
+        }
+
+        # 4. collect Q-lines and gate-lines. A line that opens like a marker
+        #    (`**Q<n>` / `**Финальный гейт`) but breaks the exact template form
+        #    is flagged as malformed and never counted as a valid block.
+        # C4 rule 4 Q marker: `^**Q<N>( (<tag>))?.** ` — the `(<tag>)` is OPTIONAL
+        # (so `**Q1.** q?` is valid), and content after the required space is
+        # mandatory (empty question rejected).
+        # C4 places the Q/A and gate blocks INSIDE the canonical `## Q&A`
+        # section. Parsing the whole file let a transcript with a complete-
+        # looking block ABOVE an empty `## Q&A` pass as artifact=ok, so the
+        # scan is bounded by that section (heading → next `## `).
+        qa_start = qa_line; qa_end = 0
+        if (qa_line > 0) {
+          qa_end = NR
+          for (i = qa_line + 1; i <= NR; i++) if (raw[i] ~ /^## /) { qa_end = i - 1; break }
+        }
+        nq = 0
+        for (i = qa_start; i <= qa_end; i++) {
+          if (raw[i] ~ /^\*\*Q[0-9]/) {
+            # A line opening like a Q marker but breaking the exact template is
+            # not a question at all — C8 has no `malformed` code, so it is
+            # reported with the closed-enum code for "no valid question here".
+            if (raw[i] !~ /^\*\*Q[0-9]+( \([^)]*\))?\.\*\*[ \t]+[^ \t]/) { qmal++; print "F " i " 7 no_questions"; continue }
+            nq++; qidx[nq] = i
+            s = raw[i]; sub(/^\*\*Q/, "", s)
+            d = ""; k = 1
+            while (k <= length(s) && substr(s, k, 1) ~ /[0-9]/) { d = d substr(s, k, 1); k++ }
+            qnum[nq] = d + 0
+          }
+        }
+        # C4 rule 8 gate marker: `^**Финальный гейт(, круг <M>)?.** ` — only an
+        # optional numeric round may follow; arbitrary text → gate_malformed.
+        ng = 0
+        for (i = qa_start; i <= qa_end; i++) {
+          if (raw[i] ~ /^\*\*Финальный гейт/) {
+            # Same reasoning as a malformed Q marker: a broken gate marker is
+            # not a gate, and C8 declares no `gate_malformed` code.
+            if (raw[i] !~ /^\*\*Финальный гейт(, круг [0-9]+)?\.\*\*[ \t]+[^ \t]/) { gmal++; print "F " i " 13 missing_final_gate"; continue }
+            ng++; gidx[ng] = i
+          }
+        }
+
+        # Only report the file-level absence when no line already carried the
+        # code, so a malformed marker is not double-counted.
+        if (nq == 0 && qmal == 0) print "F 1 7 no_questions"
+        # Numbering that does not start at 1 IS out-of-order numbering — C8 has
+        # no separate `q_number_not_one`.
+        if (nq > 0 && qnum[1] != 1) print "F " qidx[1] " 8 q_number_out_of_order"
+
+        # 5-7. per Q-block
+        prev = 0
+        for (k = 1; k <= nq; k++) {
+          bs = qidx[k]; be = next_boundary(bs) - 1
+          # Tracks EVERY number seen: `Q1, Q2, Q1` was only out_of_order.
+          if (qnum[k] in qseen) print "F " bs " 9 q_number_duplicate"
+          else if (qnum[k] < prev) print "F " bs " 8 q_number_out_of_order"
+          qseen[qnum[k]] = 1
+          prev = qnum[k]
+          if (!has_answer(bs, be, qnum[k])) print "F " bs " 10 answer_missing"
+          hasdec = has_decision(bs, be)
+          if (!hasdec) print "F " bs " 11 decision_missing"
+          if (legacy != "1" && hasdec) {
+            aline = answer_line(bs, be, qnum[k])
+            rstart = (aline > 0 ? aline : bs)
+            # Rejected token is honoured only from the answer line onward, so a
+            # `Rejected:` embedded in the QUESTION cannot satisfy the rule.
+            if (!has_rejected(rstart, be)) print "F " bs " 12 rejected_alternatives_missing"
+          }
+        }
+        if (legacy == "1" && !rej_section && !inline_rej && nq > 0) print "F 1 12 rejected_alternatives_missing"
+
+        # 8. gates
+        if (ng == 0 && gmal == 0) print "F 1 13 missing_final_gate"
+        prevm = 0
+        for (g = 1; g <= ng; g++) {
+          gs = gidx[g]; ge = next_boundary(gs) - 1
+          gotans = 0
+          for (j = gs; j <= ge; j++) if (raw[j] ~ /^\*\*Ответ\.\*\*[ \t]+[^ \t]/) gotans = 1
+          if (!gotans) print "F " gs " 14 gate_answer_missing"
+          if (ng >= 2) {
+            m = round_of(raw[gs])
+            if (m < 0) print "F " gs " 15 gate_round_missing"
+            else {
+              if (m <= prevm) print "F " gs " 16 gate_round_out_of_order"
+              prevm = m
+            }
+          }
+        }
+      }
+    ' "$PARSE_FILE"
+  )"
+  render_findings "$parse" 0
+}
+
+case "$MODE" in
+  plan) run_plan ;;
+  transcript) run_transcript ;;
+esac

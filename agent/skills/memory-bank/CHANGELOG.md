@@ -1,0 +1,2350 @@
+# Changelog
+
+All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+- Hermes plugin `memory-bank` now guards MB Team orchestrator sessions (`hermes/memory-bank/team_guard.py`, over `scripts/mb_team_guard_core.py`): `pre_tool_call` blocks main-agent edits into the project tree, terminal writes and raw `git commit` with Hermes's block directive, `pre_llm_call` injects the orchestrator rules once plus a console/bank reminder; child agents and ordinary sessions pass, any error fails open, `MB_TEAM_GUARD=off` disables it.
+- MB Team orchestrator guard split into a host-neutral core (`scripts/mb_team_guard_core.py`: `decide(event)` -> allow/deny/context, plus a JSON stdin/stdout CLI for Hermes, pi and OpenCode adapters) and a thin Claude Code wrapper (`hooks/mb-team-guard.py`, same messages); the shell-write helper moved next to it and now follows `cd`/`pushd` before resolving relative targets (an unfollowable `cd` fails open) and treats any `.memory-bank/` directory as bank territory.
+- MB Team orchestrator rules ship with the skill (`references/team-orchestrator-rules.md`): the guard hook injects them once per orchestrator session as `additionalContext` (`hooks/mb_team_rules.py`); ordinary sessions get nothing, `MB_TEAM_GUARD=off` / `team_guard=off` disable it; a guard state file holding only seen-marks no longer disables env-mode (`MB_ORCHESTRATOR=1`) sessions.
+- MB Team orchestrator guard also denies Bash writes into the project tree outside the bank (`>`/`>>`, `tee`, `sed`/`perl -i`, `cp`/`mv`/`install`/`ln`, `python -c`/here-doc `open(..., 'w')`, `git apply`, `patch`), with the same "delegate it as a track" message; bank, /tmp, ~/.hermes and read-only commands pass (`hooks/mb_team_guard_shell.py`, heuristic, fails open).
+- `mb-team-track` Workflow: a `large` track gets one more Astra review round on the fix diff left after its last round (blocker/major findings go to one fix, then the judge); the judge of a track with `review_rounds` 0 no longer asks for review evidence.
+- MB Team gate fixes: the rules gate prints lines naming another unfinished track's file or a changed file outside the commit as a `not this commit` note instead of refusing; `verdict --decision --paths` adds the judge's commit paths to the verdict digest, so `track set --add-files` with exactly those paths no longer forces a fresh judge.
+- MB Team guards: `team commit` refuses a track without a judge `team verdict` bound to the diff it reviewed (`verdict --begin` then `--decision`; no verdict, not GO, or any edit, mode or symlink change after the judge start), and the `mb-team-track` Workflow returns `STALE_SCRIPT` without spawning agents when its `SCRIPT_SHA` differs from `workflow-args`' `script_sha` (`scripts/mb_team_script_sha.py --refresh`).
+- `mb-team-track` Workflow: stages follow each track's size preset (`review_rounds`, per-role `efforts`), the fix agent triages review findings itself (no triage agent), the verifier and judge run the new read-only `team commit-check`, a re-judge sees only the fix diff and its previous blocking items, new `verify` and `fix-review` starts (a `planned` track starting past execute is booked dispatched → returned first), and `team.max_parallel` caps concurrent tracks; `team commit`/`commit-check` no longer refuse over files of a never-dispatched planned track that depends on the committed one, and refuse when the board cannot be read; a blocked fix blocks the track, track diffs include staged changes, review files carry the run id.
+
+## [5.4.2] — 2026-11-22
+
+- Update notice and `/mb upgrade` know the npm install: the bundle copy the npx launcher runs from is the `npm` flavor, and its upgrade command is `npx skill-memory-bank@latest install`.
+- `/mb team`: tracks run through the bundled Claude Code Workflow `workflows/mb-team-track.js` (args from `team workflow-args`; models, efforts and the `team.external_review` command come from `pipeline.yaml`; installed to `~/.claude/workflows/`); `track add --followup` reopens a closed team; `track set --note` writes the board entry and the track's console line under the built-in `console` lock; `mb-console.sh check` enforces the 40-line cap; `track set --add-files` widens a track's globs (refused on overlap with an unfinished track) so `team commit` takes a shared fix the judge lists.
+- New `hooks/mb-team-guard.py`: in an orchestrator session it denies code edits outside the bank, points a plain `git commit` to `team commit` with the board, and reminds at Stop when the console is stale; the `codex-reviewer` agent ships with the skill and reads its model from `pipeline.yaml` (`mb-reviewer-resolve.sh --external`); `mb-agree.sh` suggests consolidation above 25 active agreements.
+- `commands/team.md` opens with its key rules and a line-range contents block (`scripts/mb-doc-toc.py`, checked by a test), so a reader that stops early still sees the rules and every section.
+
+## [5.4.1] — 2026-11-20
+
+- Security: a `memory_bank_skill/` folder in the current directory (for example an untrusted checkout) no longer runs in place of the bundled package. The npm bin runs Python with `-P`; shell helpers that find the package through `PYTHONPATH` set `PYTHONSAFEPATH=1`. Affects 5.4.0 on every channel.
+- npm: `npx skill-memory-bank install` runs the PyPI bundle (staged by `packaging/npm/stage.sh` from the sdist) from a persistent copy under `~/.local/share/memory-bank-skill/npm/<version>/`.
+
+## [5.4.0] — 2026-11-20
+
+- `/mb work` with no target skips active plans that are paused, cancelled, done, blocked or waiting on an open `depends_on`, and takes the only eligible plan, else the only `in_progress` one.
+- `/mb` router for Opus 5.5 / Fable: `commands/mb.md` is a ~12 KB router (was ~111 KB); each subcommand section loads from `references/mb/<sub>.md` on route; `/mb help <sub>` prints one.
+- Code graph in daily use: `/mb work` pushes a bounded `## Graph` block into implementer, reviewer and judge prompts; `mb-graph.sh tests` follows bats → shell → Python; `mb-cost-report.py` prints `graph_share`; graph nudges suggest only real symbols.
+- OpenSpec round-trip: `mb-openspec.sh export` (dry-run diff, `--write`, `--allow-delete`, `--new`) and per-unit three-way `sync` with `--take openspec|bank`; conflicts write nothing.
+- Pi: an `agent_before_settle` gate resumes an unfinished `/mb drive` or `/mb work` run owned by the session (capped, fail-open).
+- `/mb work <openspec-change-id|openspec/changes/<id>>`: the resolver imports or syncs the change into the bank triple (a conflict stops before any work), and the run ends with a dry-run `export` diff and a question before `--write`; [OpenSpec round-trip](docs/commands.md#openspec-round-trip).
+- Hermes Agent: `hermes/memory-bank` plugin runs the skill unchanged; each session gets its folder's `.memory-bank/`, a Hermes project bank or the profile's general bank, with session context, handoff and semantic reindex; [setup](hermes/README.md).
+- OpenCode 2: native command/tool hooks, opt-in model-free root memory and run-scoped model/variant routing; [contracts and limits](docs/cross-agent-setup.md#opencode).
+- Installer/CLI: `--only opencode` isolates installation, owned updates and uninstall; public extension opt-in survives reinstall. Other hosts and retained user configuration remain unchanged.
+- OpenCode >= 2.3 (subagents always run in the background): the dispatch guidance drops `background?` and ends the turn until the `<subagent>` report; a planning run keeps its model pins until every child has reported. CI runs the OpenCode V2 acceptance tests against a pinned, checksum-verified 2.3.2; the coverage gate is back to 85%.
+- OpenCode upgrade from a pre-hash ownership record: a path listed in `files` without a `file_sha256` entry no longer fails the adapter; it is moved to a recorded backup under `<root>/.memory-bank-backups/` (outside host discovery), then rewritten and hashed. Uninstall keeps those backups and names them. Unlisted files and hashed files edited since installation are still refused.
+
+### Fixed — OpenCode helpers behind a pyenv/asdf shim
+
+- OpenCode runner pins the real interpreter behind a version-manager shim: each helper `python3` fork cost ~0.3 s, so `mb-work-state.sh retained` on a done item ran past the 5 s limit and blocked native dispatch.
+- CI runs the OpenCode node contracts (`tests/*.test.mjs`, suite `node` in `.github/ci-run.sh`); their fixtures skip the shim and give process-cleanup tests load headroom.
+
+### Fixed — /mb drive on Python 3.11
+
+- `mb-drive.sh phase execution` no longer fails with "unrecognized arguments" on Python older than 3.12, where a drive could not leave planning.
+
+### Added — /mb team: shared foundations, rules gate, whole-spec checks, executable contracts
+
+- `/mb team` blocks shared foundations named by several tracks (registry `<bank>/shared-mechanisms.md`, `extract` handovers, cross-track duplicate candidates), gates `team commit` on `team.rules_gate` + `mb-rules-check.sh` + a frozen contract (`scripts/mb_contract.py`), and verifies every spec REQ at wave end (`spec_verify`, `scripts/mb_spec_coverage.py`); see [commands/team.md](commands/team.md).
+
+### Fixed — git hook env leak, plan lookup, macOS/pyenv test runs
+
+- `mb-flow-verify.sh` runs the project's tests without the repo-local git env a hook exports (a linked worktree's pre-commit sets `GIT_DIR`; tests then wrote into the committing repo, e.g. its `.git/hooks`); `mb-work-resolve.sh` matches a plan substring against the file name, not its parent directories; the Cyrillic-topic warning of `mb-plan.sh` and the legacy answer forms of `mb-interview-artifact-check.sh` also work in the C locale.
+- Pi session capture: a stale `session_start` still awaiting the update notice no longer takes over its replacement session (input landed in the wrong session file).
+- Parallel suites: `pytest -n auto` (pytest-xdist in the dev extra) and `bats --jobs N` (GNU parallel) locally and in CI; wall-clock budget tests are tagged `perf` and run alone. Measured on a loaded 10-core machine: pytest 72 → 20 min, bats 3 h → 35 min. Quick loop: `-m "not slow"` / `--filter-tags '!slow'`.
+- Test suites: bats and pytest drop hook git env, call the real interpreter instead of a pyenv shim (an install-heavy bats file: 23 min → 3 min), find the Pi SDK behind `pi` on PATH, and skip with a reason when the installed Tintin/pi-inspect/opencode differ from what a test needs.
+
+- CI red on Linux/macOS: test suites no longer inherit the runner's `XDG_*` base dirs (every install wrote one real `~/.config`); `mb_work_adapt.py` parses an item after options on Python <3.12; the spec validator rejects `(?…)` that GNU grep tolerates; permission checks use GNU `stat` first; the cyrillic test-name guard is one `perl \p{Cyrillic}` pass (the bash loop crashed on macOS runners; GNU grep rejects the range in C.UTF-8); `mb-drift.sh` verifies the progress chain with the script beside it — without an installed skill the check was silently skipped.
+- e2e under `bats --jobs`: each test runs in its own directory (`install.sh` inferred clients from an `.opencode` another test had installed in the shared cwd); the render-EIO fault matches real paths (`install.sh` resolves macOS `/var` to `/private/var`); stale e2e/hook tests follow the current contracts (legacy quarantine of 22f4c93 and its provenance listing, the fail-before-write manifest probe, Pi dirty marker in `pi_native_session.mjs`, the 24-char semantic prompt gate, recall dropping gone sources).
+- Locks on Ubuntu 26.04: uutils `mkdir` (its default coreutils) reported success to several concurrent callers, so two writers shared a critical section (duplicate `BUG-` ids, a stuck glossary lock). Every mkdir-based lock now gates on `mkdir(2)` through `mb_mkdir_excl`; `mb_lock_acquire` retries when the lock vanished between a lost mkdir and its check instead of reporting it corrupt.
+- Linux: `mb-spec-validate.sh` passes parsed tasks on stdin (a large spec hit the 128 KiB per-string argv/env cap, exit 126); `mb-pre-compact.sh` keeps the handoff worker in its process group, so a caller's deadline kill (Codex hooks) no longer leaves it writing afterwards; `mb-profile.sh`/`mb-rules.sh` read key rules and presets from their own bundle, not from a pip-installed copy under the interpreter's prefix.
+- CI: each suite is split into shards on parallel runners (`.github/ci-run.sh <suite> <k> <n>`, also runnable locally) with coverage combined across pytest shards; Linux runs everything on every push (~15 min instead of ~2.5 h), macOS a quick subset, the full macOS run is nightly.
+
+### Changed — closure gate waits quietly
+
+- The Stop hook `mb-flow-closure-guard.sh` no longer blocks a red flow while known work runs (an open `/mb team` with working tracks or a fresh `/mb work` run, `scripts/mb_flow_busy.py`); it prints one reminder per `flow_closure_remind` minutes (default 30) and blocks again once the work ends or goes stale past `flow_closure_busy_max_age` (default 120, `0` = old behaviour) — both in `.mb-config` or `MB_FLOW_CLOSURE_*` env (I-288).
+
+### Added — orchestrator console
+
+- A prompt-level rule and `templates/orchestrator-console.md`: an orchestrator driving background agents keeps `<bank>/orchestrator-console.md` (open questions, running tracks, awaited events, unrecorded decisions), updates it at every milestone and reads it first after compaction; the PreCompact hint now names it and the SessionStart hook injects it (capped, `MB_CONSOLE_MAX_BYTES`); post-compaction checks (console, AGR tail, coordination board, team status) are part of the rule. See `references/orchestrator-console.md`.
+
+### Fixed — spec layers, bank ignore rules, QA regression cases, drive checks
+
+- An inline `layers: {...}` map in a spec is refused instead of read as empty (I-284); `/mb init` ignores the bank's runtime state (`.drive/`, `.work-state*`, `.work-budget*`, locks; I-285); a regression case is written only under `qa/test_cases/`, and `mb-plan.sh --tier` without a value fails loudly (I-286); `/mb drive` runs each `check:` once per loop pass; `/mb askme` is an alias of `/mb discuss`; `mb_work_light.py` is removed.
+
+### Changed — /mb drive plans, then dispatches through /mb work and /mb team
+
+- `/mb drive` plans every goal criterion with the user, then dispatches `/mb work`/`/mb team` per `mb-drive.sh next`; several drives per bank with `--goal`; `--route/--phase/--max-cycles` and `mb-drive-preflight.sh` are removed; state lives in `.drive/<run_id>.json`.
+
+### Changed — /mb team runs every track through /mb work
+
+- The `direct` and `light` track modes are retired: every `/mb team` track runs through `/mb work` (AGR-103).
+- The host lock root is now `MB_LOCK_DIR` or `/tmp/mb-locks-<uid>` (0700, owner/symlink checked, TMPDIR-independent); locks under the old `$TMPDIR/mb-locks` are no longer seen.
+
+### Added — QA declared at plan time
+
+- `qa.enabled` is now `auto | true | false`, default `auto`: `mb-plan.sh --tier` declares `qa: on` for standard+ plans (small off, `--qa`/`--no-qa`, no `qa/README.md` → off), `/mb plan` dispatches `mb-qa` once to write test cases, `/mb sdd` offers a `--spec` plan wrapper. A copied `qa.enabled: false` keeps QA off — change it to `auto`.
+
+### Added — `/mb qa`: acceptance QA with a bug registry
+
+- `/mb qa run [all|<name>|@<tag>|<dir>/]` walks md scenarios against the live product in an `mb-qa-runner` subagent
+  (browser via Playwright MCP or `@playwright/cli`, CLI, HTTP API) on Claude Code, Codex, OpenCode and Pi.
+- Strict run report; bugs go to `qa/bugs.md` through `scripts/mb-qa-bug.sh` with `critical|major|medium|low` severity.
+- `/mb drive` and `/mb team` firewall (`mb-flow-verify.sh`) gains a `qa` check: an open critical/major bug blocks closure; skipped without `qa/bugs.md`.
+
+### Added — `/mb team`: parallel tracks in one tree
+
+- `/mb team` (`commands/team.md`, `scripts/mb-team.sh`) runs one task as parallel tracks: brief, per-track pipeline
+  by size with provenance, a stateless `next` loop, team review cycles, checkpoints and a scoped y/N commit (no push).
+- `scripts/mb-lock.sh` serializes shared heavy commands with a fair FIFO queue, disk preconditions and a stop threshold.
+
+### Fixed — scripts run directly from a pipx/pip install find the right Python
+
+- Helper scripts run without the CLI (as agents do) no longer fail with `ModuleNotFoundError: memory_bank_skill`
+  or `datetime.UTC` on an old system `python3`: `_lib.sh::mb_resolve_python` and `scripts/_mb_skill_python.py`
+  pick `$MB_PYTHON`, else the install's `<prefix>/bin/python3` (#8, #9 — thanks @xiaofenglg).
+
+### Fixed — installing over an older version
+
+- Installing `main` over v5.3.1 now gives the same files as a clean install and keeps the saved language/clients;
+  own unedited files get no `*.pre-mb-backup.*`; pipx/pip/brew upgrade re-runs `memory-bank install`.
+- A stale managed project block prints one refresh command at session start (`MB_AUTO_REFRESH=on` refreshes it);
+  `mb-rules-check.sh` checks import direction for clean, modular-monolith, microservices, ddd, hexagonal, mobile-udf.
+
+### Changed — `/mb work` default is `medium`, verifier once per plan
+
+- Complexity presets `simple` / `medium` / `complex` / `governed` (AGR-074); `workflow.default` is
+  `medium` (was `execution`, now its alias; `governed-execution` → `governed`). The verifier runs
+  once after the last item of the plan (`verify.cadence: plan`, AGR-075), was: after every item.
+  `--verify=stage|plan|run|off` changes it per run; `effort_tiers` + `--tier` pick the preset.
+  A workflow without `verify.cadence` (including older project workflows such as `execution`)
+  now also verifies once at plan end; set `verify.cadence: stage` to keep the per-item verifier.
+
+### Added — Key rules, `/mb rules`, project quality settings; always-loaded files slimmed
+
+- Key rules (`rules/key-rules.json`) open every CLAUDE.md/AGENTS.md block (≤ 3 KB); pick them in the
+  install checklist or with `/mb rules` (enable/disable/add, own rules). The install also asks for
+  architecture, TDD, Testing Trophy and coverage; they live in the rules profile (`quality`) and
+  reach Key rules, the project `RULES.md` block, the verifier and the review rubric.
+- Always-loaded files no longer copy `RULES.md`: project AGENTS.md ~51 KB → ~4.3 KB, rule files
+  ~47 KB → ≤ 4.3 KB, global AGENTS.md ≤ 8 KB. The `/mb init --full` CLAUDE.md template is ~40 lines;
+  an already generated CLAUDE.md is not rewritten — regenerate it to pick up the short form.
+- The project CLAUDE.md/AGENTS.md Key rules block lists only what the project changes against your
+  user-level rules (~150–300 B instead of ~2.7 KB); Windsurf/Cline/Kilo rule files keep the full block.
+
+### Added — task tiers, targeted test runs, tone by model
+
+- Five task tiers (`references/effort-tiers.md`, SKILL.md § Task routing) pick the preset; coverage
+  thresholds are off by default (`/mb rules set coverage 85/95/70` turns them on).
+- `mb-test-run.sh --changed-since <ref>` / `--files` runs only the tests mapped to the changed files.
+  Without a flag it now runs every detected stack (`bats+python`); before, only the first one found.
+- `discipline: auto|strict|calm` (`strict_models`, `mb-rules.sh discipline`): strict wording for weaker models.
+- A project `pipeline.yaml` scaffolded before the presets takes them, their aliases and `effort_tiers`
+  from the bundled default; a project workflow of the same name still wins.
+
+### Added — `/mb work` cost tiers: model per role class and host
+
+- `cost: premium|optimal|economy` (default `optimal`: implementer/verifier/researcher on the mid
+  model, planner/reviewer/judge on the premium one), `cost_tiers`, `model_profiles.<host>`
+  (default profile `claude-code: {premium: opus, mid: sonnet}`) and `hosts.<host>.{cost,preset,verify}`.
+  `mb-work-plan.sh --cost/--host/--model` emits `model_source`, `cost`, `host` and
+  `step_models`; explicit `roles.<role>.model` still wins. Verifier and judge now get a tier
+  model (before: `roles.<role>.model` or the session model).
+
+### Changed — Codex and Cursor get tier models; installed agents carry them
+
+- `model_profiles` ships `codex: {premium: gpt-6-astra, mid: gpt-6.1-sol}` and
+  `cursor: {premium: claude-opus-5-5, mid: claude-sonnet-5-5}`. A project on Codex or Cursor
+  without explicit `roles.<role>.model` now runs on tier models: under `optimal` the implementer
+  roles use `gpt-6.1-sol` / `claude-sonnet-5-5`, before they inherited the session model.
+- Installed agents carry the tier model: `mb-agent-render.py --pipeline` writes it into
+  OpenCode `.opencode/agent/*.md` (`model: provider/id`), Cursor `~/.cursor/agents/mb-*.md`
+  and Codex `~/.codex/agents/*.toml` (`model = "<id>"`). `/mb config init --host
+  opencode|cursor|codex` re-renders the installed agents from the new pipeline; Cursor
+  `install-global` uses the bundled default profile (`MB_COST` picks the tier). `inherit` or no
+  profile → no model key. `/mb config show` marks these hosts `applied: static (installed agents)`.
+
+### Fixed — Codex sub-invoke default moves off retiring GPT-5.5
+
+- `mb-subinvoke-resolve.sh` defaults the codex / pi fan-out model to `gpt-6.1-sol` / `openai-codex/gpt-6.1-sol` (GPT-5.5 leaves ChatGPT sign-in on 2026-10-14); `MB_SUBINVOKE_MODEL` still overrides (I-243).
+
+### Changed — the agreements block in CLAUDE.md/AGENTS.md is an index capped at 4 KB
+
+- `mb-agree.sh sync` renders each active agreement as one index line — `- AGR-NNN:` plus the
+  first sentence, at most 140 characters, with `…` when shortened — instead of its full text.
+  The whole managed block fits in 4096 bytes: on overflow the newest agreements stay and a line
+  `- … K more → /mb agree list` counts the rest. `agreements.md` keeps the full text and stays
+  the single source of truth. On this repo `CLAUDE.md` drops from 35 KB to 8 KB.
+
+### Fixed — code-graph clusters and bridge files no longer depend on `PYTHONHASHSEED`
+
+- `codegraph_analytics` builds the file graph with sorted nodes and edges before louvain and
+  sampled betweenness, so Communities, Bridge files and `graph.json` `community` ids are the same
+  in every process (I-219). Files with no file-level edge are no longer fed to louvain: they get
+  no `community` field and `communities=N` counts real clusters only (219 → 31 on this repo).
+  `networkx` is pinned to one minor (`>=3.6,<3.7`) in the `[codegraph]`/`dev` extras and the
+  bootstrap venv list, and `hooks/mb-semantic-bootstrap.sh` now enforces it: readiness checks
+  installed versions against `hooks/lib/venv-requirements.sh` (new `hooks/lib/venv_unmet.py`),
+  not just imports, and reinstalls a package outside its pin (an existing venv on networkx 3.7
+  moves to 3.6.x). The meta row of `graph.json` records `src_root` relative to the project root,
+  so the SessionStart catch-up (absolute `--src-root`) and a manual `--apply .memory-bank .`
+  write the same line; the catch-up resolves a relative value from the project root.
+
+### Fixed — the tracked graph no longer depends on which python rebuilt it
+
+- `hooks/mb-semantic-bootstrap.sh` installs the whole `[codegraph]` extra (tree-sitter, six
+  grammars, `networkx`) next to `fastembed numpy` and counts every package in its readiness
+  check, so a venv made before this release gets them on the next run. The list lives in one
+  place, `hooks/lib/venv-requirements.sh`, and a test holds it equal to the extra in
+  `pyproject.toml`. A failed combined install retries package by package; a partial result
+  names the missing modules and still exits 0.
+- `mb-codegraph.py` under a python without `networkx` re-execs itself under the bootstrap venv
+  (the same resolver and re-exec helper `mb-semantic-search.py` uses), so `graph.json` keeps
+  `community` and Top symbols keep PageRank — including the SessionStart catch-up, which spawns
+  `sys.executable`. It re-execs only into an interpreter that has `networkx` AND every
+  tree-sitter module the current one has; otherwise, or when the exec fails, it builds in place
+  as before. `mb-deps-check.sh` now points the networkx and tree-sitter hints at the bootstrap (AGR-053).
+
+### Fixed — a rebuild without networkx no longer wipes Communities and Bridge files
+
+- `mb-codegraph.py --apply` under an interpreter without `networkx` (the SessionStart catch-up
+  runs under the system `python3`, where it is almost never installed) used to drop the
+  `## Communities` and `## Bridge files` sections from the git-tracked `god-nodes.md`. It now
+  carries both blocks over from the previous report, with a line under each heading saying they
+  were not recomputed and naming the commit and date of the build that computed them (taken from
+  the previous `graph.json` stamp; repeated carries keep that source rather than the date of an
+  intermediate build). Rows naming files that are no longer in the graph are dropped, the Files
+  count is recounted, bridge rows are renumbered, and the line says so. A build with `networkx`
+  recomputes the sections and the line goes away. No previous file, no such sections in it, or an
+  unreadable file → the report is byte-identical to before. Top symbols / modules are always
+  recomputed (I-225).
+
+### Added — `mb-graph.sh`, one short command for the code graph and semantic search
+
+- `scripts/mb-graph.sh who-calls|impact|tests|status|search` resolves the bank and delegates to
+  `mb-graph-query.py` / `mb-semantic-search.py`. `search` routes a single identifier to BM25 and a
+  phrase to embeddings. Exit codes: 2 usage, 4 no Memory Bank, anything else is the delegate's
+  (1 no match, 3 no graph).
+- `who-calls` answers only its own question: `mb-graph-query.py neighbors` gained
+  `--direction in|out|both` (default `both`, output unchanged), and `in` keeps only edges whose
+  destination is the symbol itself. For `mb_resolve_path` that is 92 callers and nothing else —
+  `neighbors` returned 194 "incoming" edges, 103 of them imports of the whole file, plus 20
+  outgoing ones.
+- Every hint points at the one command: the nudge, the SessionStart cheat sheet and
+  `mb-context.sh` print a two-line `bash <abs>/scripts/mb-graph.sh …` instead of a three-line
+  python call, and so do the agent instructions (`mb-tooling-core`, `mb-research`,
+  `mb-codebase-mapper`, `SKILL.md`, `commands/`, `references/code-graph.md`, `rules/`). Hooks print
+  the absolute path they resolved themselves; instructions assign `SKILL_DIR` explicitly, because
+  the variable does not exist in an agent's Bash tool.
+- Stale-graph hints no longer hard-code `~/.claude/skills/memory-bank`, and the `mb-context.sh`
+  rebuild hint passes the bank path (`--docs <bank> .`) — the old `--docs . .` would have written
+  `./codebase/graph.json` into the project root.
+
+### Changed — the code-graph nudge repeats and names a symbol
+
+- `hooks/mb-graph-nudge.sh` no longer fires once per session: the marker file now holds a counter,
+  so the nudge returns every `MB_GRAPH_NUDGE_EVERY` structural calls (default 25). A single hint
+  scrolls out of context long before the grep habit changes.
+- The message carries a candidate symbol lifted from the actual pattern, so it is a runnable
+  command rather than a reminder. The identifier being *defined* wins (`def foo`, `class Foo(Base)`)
+  — the plain "last identifier" rule picked `target` and `Base` on exactly the commonest patterns.
+- New `SessionStart` registration with `matcher: compact` calls the hook with `--reset`, because
+  compaction drops the nudge from context. It exits before reading stdin (a SessionStart hook that
+  blocks on `cat` hangs `claude --resume` on macOS).
+- The counter is checked *before* the freshness gate spawns python, so 24 of every 25 structural
+  calls now cost nothing at all — previously every structural grep paid for `mb-graph-query status`.
+  A counter that cannot be persisted degrades to silence instead of nudging on every call.
+
+### Changed — subagents are dispatched by name; the installer composes their shared discipline
+
+- Agents list the partials they need in a new `compose:` frontmatter key
+  (`mb-engineering-core`, `mb-tooling-core`); `scripts/mb-agent-render.py` places those partials
+  above the agent text at install time (Claude Code `~/.claude/agents`, OpenCode `.opencode/agent`,
+  pi agent roster). `/mb work`, `/mb`, `/mb drive`, and `SKILL.md` dispatch `subagent_type="<agent>"`
+  with only the task data instead of re-typing 11–16 KB of agent files into every prompt, which
+  also made the agents' `model`/`tools` frontmatter take effect. Clients without named dispatch
+  read the role file and its `compose:` partials, as before.
+- The Agent tool has no `thinking` parameter; commands no longer pass one. `pipeline.yaml`
+  keeps `thinking` per role; Claude Code takes reasoning depth from a new `effort:` frontmatter
+  key on every agent. `mb-agent-render.py --host` adapts it per client: OpenCode drops it (and the
+  Claude `model` alias — unknown keys reach the provider as model options), pi gets `thinking:`
+  and pi tool names, Codex gets `model_reasoning_effort`.
+- Codex subagents: `install.sh` writes every role as a TOML file to `~/.codex/agents/`, which Codex
+  runs in-session through `spawn_agent(agent_type=<name>)`; roles without Write/Edit get
+  `sandbox_mode = "read-only"`. The Codex manifest no longer lists `subagents` as a limit.
+- `SKILL.md` § Invocation maps dispatch by name per host (Claude Code `Agent`, OpenCode `task`,
+  Codex `spawn_agent`, pi `mb_dispatch_subagent`); `/mb work`, `/mb`, and `/mb drive` point to it.
+- pi dispatcher: passes `--thinking` (the call's, else the role's, else the session's) and the
+  session model when the call names none, as pi's reference subagent extension does; the child
+  process runs with `MB_SESSION_CAPTURE=off`. The pi AGENTS.md block no longer tells the agent to
+  ignore the role's frontmatter, and install.sh and `adapters/pi.sh` share one generator for it,
+  localized like the other clients.
+- OpenCode: the global `~/.config/opencode/AGENTS.md` block carries the compact rules core
+  (`CLAUDE-GLOBAL.md`, ~15 KB) like the Codex and pi global blocks. It used to embed the full
+  `RULES.md`, and OpenCode also loads the project `AGENTS.md` with the same `RULES.md`, so every
+  request carried ~47 KB of rules twice.
+- Commands run bundled scripts and hooks through `"$SKILL_DIR"` instead of the Claude Code path
+  `~/.claude/skills/memory-bank/…` (`/adr`, `/commit`, `/plan`, `/catchup`, `/api-contract`,
+  `/db-migration`, `/observability`, `/security-review`, `/roadmap-sync`, `/traceability-gen`, and
+  `/mb recall`); `sc_semantic_py` also finds `~/.claude/hooks/.venv` when the hook runs from the skill
+  directory, so `/mb recall` keeps its semantic hits.
+- OpenCode: global agents (`install-global-agents`) are rendered like project ones — they used to
+  ship `compose:`/`effort:` raw and without the composed discipline. Roles without Write/Edit get
+  `permission.edit: deny` (OpenCode allows every tool by default).
+- `model: sonnet` removed from 20 agents: the model comes from `pipeline.yaml` or the session.
+  `mb-wiki-author` keeps `model: haiku` as a deliberate bulk worker.
+- `plan-verifier` runs `mb-test-run.sh` directly (it has no Agent tool, so the old delegation to
+  `mb-test-runner` could not run); `/test` and `/review` run `mb-test-run.sh` and
+  `mb-rules-check.sh` in the main session instead of dispatching a subagent for a script.
+- `mb-engineering-core` reads only the project `RULES.md` (the global rules already reach the agent)
+  and gains a "Scope — the item is the deliverable" section: no neighbouring fixes, stated
+  assumptions for ambiguous items, surgical edits. `mb-reviewer` and `plan-verifier` use an
+  evidence standard (file:line and a concrete failing input; blocking severities only for
+  correctness, security, unmet DoD) instead of an adversarial default.
+- `mb-research` gets the `WebSearch`/`WebFetch` tools its description promised.
+- Command snippets run bundled scripts through `$SKILL_DIR` instead of a bare `scripts/…` path,
+  which only resolved inside the skill repo.
+
+### Changed — always-loaded rules written for current models
+
+- `rules/CLAUDE-GLOBAL.md` and `rules/RULES.md`: the `[MEMORY BANK: …]` status line opens only the
+  first reply to the user — not later replies, subagent reports, or machine-parsed output — and
+  the pre-answer checklist is gone. "CRITICAL RULES — DO NOT FORGET DURING COMPACTION" becomes
+  "Engineering rules"; Fail Fast asks only when readings of a task lead to materially different
+  work; the mandatory "Goal → Action → Result" response format is removed; stale counts
+  ("25 commands"), model pins, and references to agents that do not exist are gone.
+- One canonical SRP/DRY/KISS wording in `rules/RULES.md`, referenced by the engineering core, the
+  reviewers, and the verifier. `mb-rules-check.sh --base <ref>`: a file over 300 lines is a
+  WARNING; it is CRITICAL only when this change pushed it over the threshold (or created it over
+  it). `/mb work`, `/review`, and the `/mb done` gate pass `--base HEAD`. The code-graph routing
+  table lives only in `mb-tooling-core`.
+
+### Added — Spanish, Portuguese, Chinese; separate code-comment language; per-project override
+
+- `--language` accepts `en`, `ru`, `es`, `pt`, `zh` with full rule strings and translated
+  `.memory-bank/` templates (script anchors stay English). `--comments-language` sets the
+  code-comment language when it differs; both persist in the install manifest and are reapplied by
+  `mb-upgrade.sh`. Adapter rules files (pi, Cursor, Windsurf, Cline, Kilo, Codex) render the
+  language through the same `_texttools` strings as the Claude install.
+- `/mb language <code> [--comments <code>] | off | show` (`scripts/mb-language.py`) overrides the
+  language for one project: a managed block at the top of the project's `AGENTS.md` and `CLAUDE.md`,
+  which every client reads natively after its global rules.
+
+### Fixed — pi and OpenCode session capture; global AGENTS.md growth; tests that touched the real HOME
+
+- `tests/bats/test_install_interactive.bats` ran the real installer to completion against the
+  developer's own `$HOME` and working directory; it now runs in a sandbox.
+- `/mb work` step 5g named the flip argument `<source>` (the category `plan`/`spec` used by
+  `mb-work-state.sh init`); `mb-work-checkbox.sh flip` needs the source file path, now `<source_path>`.
+
+- pi: the session capture used the session file path as the id, so the capture file name held a
+  `/` and every write failed silently. It now uses `getSessionId()`, and input injected by an
+  extension (the `/mb` router text) is no longer logged as a user message.
+- OpenCode: a `task()` subagent's child session no longer adds its own "Auto-capture" entry to
+  `progress.md` and runs no session summary.
+- Reinstalling added a blank line before the managed block in `~/.codex/AGENTS.md` and
+  `~/.config/opencode/AGENTS.md` every time; all global AGENTS.md blocks now go through one upsert
+  helper that trims them.
+
+### Fixed — Claude Code hooks that never reached the model they were written for
+
+- The subagent-dispatch hooks (`mb-context-slim-pre-agent.sh`, `mb-sprint-context-guard.sh`) were
+  registered on matcher `Task` and returned early unless `tool_name` was `Task`. Claude Code 2.1
+  calls the tool `Agent`, so neither hook ran and the sprint token guard never stopped anything.
+  Both now match `Task|Agent`.
+- Removed the `Setup` echo and the `PreToolUse:Write` `[PRE-WRITE]` echo: Claude Code does not show
+  plain stdout from those events to the model, so they only spawned a process. The `PreCompact`
+  echo told the compaction summarizer to launch a Sonnet agent; it now lists what the summary must
+  keep and says not to call tools. Upgrading removes the old entries (they carry the
+  `[memory-bank-skill]` marker); user hooks are untouched.
+- `mb-graph-nudge.sh` throttled on `CLAUDE_SESSION_ID`, which Claude Code does not export to hooks,
+  so it fell back to an hourly key and nudged up to once an hour. It now keys on `session_id` from
+  the hook input (sanitized), then the env var, then the date.
+- `mb-semantic-recall.sh` no longer searches memory for harness-generated turns
+  (`<task-notification>`, `<system-reminder>`, `<local-command…>`, `[SYSTEM NOTIFICATION`).
+- `mb-freshness.sh`: the SessionStart banner reports drift without telling the model to run
+  `mb-auto-commit.sh --force`; the Stop nudge and report print an absolute script path instead of
+  `bash scripts/…`, which only resolved inside the skill repo.
+
+### Fixed — the warm vector index was unreachable from the documented command
+
+- `scripts/mb-semantic-search.py` re-execs itself under the interpreter that carries
+  `fastembed` (`MB_SEMANTIC_PY` → `~/.claude/hooks/.venv/bin/python` → `<bank>/.venv`), guarded by
+  `MB_SEMANTIC_REEXEC` against recursion. The documented invocation is a bare `python3`, which
+  never has `fastembed`, so every documented call — and every agent call, which omits the flag —
+  answered from BM25 while the matrix built by `/mb graph --apply` sat unused. Applies to
+  `--backend embeddings` AND the default `auto` (AGR-047); `--backend bm25` is answered in place,
+  and no suitable interpreter still means BM25. The interpreter is compared by literal path, never
+  `realpath`: a venv python is a symlink to the base binary, and resolving it skipped the re-exec.
+- `memory_bank_skill/semantic_search.py`: `--source-only` now filters test/spec hits AFTER
+  retrieval over the full corpus (with churn-sized `fetch_k` so k results survive the filter).
+  Filtering before indexing gave it a different `corpus_key`, so alternating a `--source-only`
+  query with a plain one re-encoded the whole corpus each way — measured at 1:00.89 then 3:49.81
+  on the 9 275-doc index. Both are now ~0.6 s, and `embeddings.key`/`.npy` are left untouched.
+- A query never encodes in the foreground (AGR-048): a cold cache answers from BM25 with an honest
+  warning and spawns the detached builder, so the next query is warm (measured 0.63 s cold → 0.56 s
+  warm). `EmbeddingRetriever.is_warm()` / `cache_key_matches()` answer "is the matrix ready?" from
+  the key file alone — no matrix load, no `fastembed` import.
+- `memory_bank_skill/semantic_index.py`: the builder persists its terminal status
+  (`built`/`skipped`/`current`) to `.index/codesearch/.index.status`, keyed to the path the PARENT
+  spawned plus that interpreter's `site-packages` mtime, and `refresh_index()` reads it back. The
+  child runs on `DEVNULL`, so its `skipped` return was visible to nobody: an interpreter without
+  `fastembed` made every later `--apply` print `refreshing in background` while the index never
+  appeared. It now prints `semantic index skipped (no fastembed)` once and stops re-spawning —
+  and un-sticks by itself when fastembed is later installed into that interpreter.
+
+### Added — `/mb graph --apply` warms the semantic vector index
+
+- `memory_bank_skill/semantic_index.py`: the graph build now ends by refreshing
+  `<bank>/.index/codesearch/`, so the first `mb-semantic-search.py --backend embeddings`
+  reads a cached matrix instead of encoding the whole corpus at query time. That cost is why
+  the index existed in no bank at all: the first query had to pay minutes, so nobody ran one.
+- The parent only hashes the corpus (~0.1 s on 9 275 symbols) and spawns the encoder DETACHED —
+  `--apply` stays at ~1.4 s, which it must: `codegraph_catchup` SIGKILLs the build's process
+  group after a 30 s budget. Re-encoding happens only when the corpus hash changed; an unchanged
+  corpus prints `semantic index: up to date (N docs)` and leaves the cache files untouched.
+  A second builder exits on a non-blocking `flock` rather than encoding the same corpus twice.
+- Honest degradation (AGR-013): with no fastembed venv the step prints
+  `semantic index skipped (no fastembed)` and the graph build is unaffected. The line carries no
+  `=`, so `codegraph_catchup`'s key=value parsing of `--apply` stdout is unchanged.
+- Backfilled: `skill-memory-bank` (9 275 docs, 14 MB), `code-agent` (19 670 docs, 30 MB),
+  `techflow` (2 796 docs, 4 MB), `harness` (30 docs) — a warm embeddings query answers in ~0.7 s.
+
+### Fixed — the embeddings backend imported a package nothing installs
+
+- `memory_bank_skill/semantic_embeddings.py` imported `sentence_transformers`, while
+  `hooks/mb-semantic-bootstrap.sh` installs `fastembed`: `EmbeddingRetriever.available` was
+  therefore always `False` and `--backend embeddings` silently fell back to BM25 with a warning
+  that told the user to install the wrong package. The retriever now uses
+  `fastembed.TextEmbedding` (AGR-045) — ONNX, ~50 MB, no torch. `available` / `index` / `search`
+  and the `embeddings.npy` + `embeddings.key` cache format are unchanged; only the encode seam
+  moved from `.encode(texts)` to the generator `.embed(texts)`.
+- The model is the same weights under the id fastembed requires
+  (`sentence-transformers/all-MiniLM-L6-v2`, 384-dim). The id is part of the cache key on
+  purpose, so a cached matrix always names the encoder that produced it.
+- `mb-deps-check.sh` reports the optional dep as `fastembed` and points at
+  `hooks/mb-semantic-bootstrap.sh` instead of `pip3 install sentence-transformers`.
+
+### Added — the code graph now covers Bash and Bats, always on
+
+- `memory_bank_skill/codegraph_shell.py`: a pure, regex-based extractor for `.sh` and `.bats`,
+  enabled unconditionally like the Python `ast` extractor — stdlib `re` only, no new dependency
+  and no opt-in flag. `.sh` files yield a module node, a function node per `name() {` /
+  `function name {`, an `import` edge per `source`/`. <path>` and per `*.sh` path mentioned in
+  code (`bash "$SCRIPT_DIR/x.sh"`), and a `call` edge for a command-position token naming a
+  function of the same or a transitively sourced file. `.bats` files yield a module node, a
+  function node per `@test "…"`, and `import` edges for mentioned scripts and `load '<helper>'`.
+- Binding is two-phase like the Python extractor: `parse_file` stays pure and file-local,
+  `bind_shell_edges` resolves paths against the files actually walked and drops call candidates
+  that name no reachable function — so a bare `grep` or a homonymous `usage` never becomes an edge.
+- On this repo the graph went from 280 modules (Python only) to 283 `.py` + 162 `.sh` + 257
+  `.bats`; 3627 → 9232 nodes and 20666 → 25638 edges. `graph_tests --file scripts/x.sh` now
+  answers with the `.bats` files that exercise it, and bash functions such as `mb_resolve_path`
+  appear in `god-nodes.md` Top symbols. Cold rebuild stays at ~2.5 s.
+- `codegraph_analytics.compute_degree` and `codegraph_rank._resolve_dst` now resolve the
+  short-name fallback through a precomputed index instead of scanning every node per edge
+  (O(edges x nodes) → O(edges + nodes)), which keeps the tripled graph fast. Resolution
+  semantics are unchanged: exact match first, then the alphabetically-first definition.
+- tree-sitter-bash is deliberately not used; regexes cover definitions, sourcing and
+  command-position calls. Upgrade path if nested constructs ever matter: add `.sh` to
+  `codegraph_treesitter.LANG_CONFIG`.
+
+### Fixed — a colourized pytest run is no longer read as "no tests"
+
+- `mb-test-run.sh::run_python` anchored the pytest summary line on `^` with a digit, but pytest
+  colourizes even when writing to a file whenever `FORCE_COLOR` is set in the environment, so the
+  line starts with an escape sequence: nothing matched and a fully green suite was reported as
+  `tests_total=0, tests_pass=null` — the field the Gate reads as "battery green" (I-208 M). The
+  pytest and bats children are now run with colour disabled (`NO_COLOR=1`, `FORCE_COLOR`/
+  `CLICOLOR_FORCE` unset) AND their log is stripped of ANSI escapes before parsing. The go runner
+  is untouched (`go test` does not colourize; its missing timeout is I-192).
+
+### Fixed — a colourized linter run is no longer read as clean
+
+- `mb-lint-run.sh` kept only output lines matching `:<line>:<col>:`, but ruff >= 0.15
+  colourizes its diagnostics even when stdout is a file whenever `FORCE_COLOR` is set in the
+  environment: the ANSI escapes sit between the colons, nothing matched, and a file with a
+  real F401 was reported `ok=true` (I-208 C). Linters are now run with colour disabled
+  (`NO_COLOR=1`, `FORCE_COLOR`/`CLICOLOR_FORCE` unset in the child) AND their output is
+  stripped of ANSI escapes before matching, for both the python and the shell runner.
+
+### Fixed — a topic slug is validated by ASCII, not by the locale's collation
+
+- `[a-z0-9-]` ranges are expanded by the collation of the active locale: under `en_US.UTF-8`
+  uppercase letters sort between the lowercase ones, so `mb-interview-artifact-write.sh install-plan
+  --topic Foo` passed its `case … *[!a-z0-9-]*` guard, installed the file, and — because no
+  rejection happened — left the credential-bearing candidate readable under `<bank>/tmp` (I-208 B).
+  Both slug validators (`mb-interview-artifact-write.sh::valid_topic` and the `--topic` guard in
+  `mb-brief.sh`, where the same range is latent under a glibc `grep`) now spell the allowed set out
+  character by character. The accepted grammar is unchanged.
+
+### Fixed — a stage-marker plan resolved at a `tasks.md` path is a plan again
+
+- The I-196 guard below treated ANY resolved `tasks.md` as a declaration surface, so the legacy
+  locator `mb-work-state.sh init work 1` — which resolves the directory `work/` to `work/tasks.md`,
+  where a stage-marker PLAN lives — answered `NOITEM` and `done` exited 5 (I-208). The surface test
+  now reads the file's contents alongside its name: no element at all is still the broken surface
+  (`NOITEM`, fail closed), `stage` elements mean a plan and fall through to `NOFILE` as before.
+
+### Fixed — a broken spec `tasks.md` no longer certifies as "nothing to gate"
+
+- `mb-work-state.sh done` used to exit 0 with `eval_gate: unverified:no_declaration_surface` for a
+  spec whose `tasks.md` was empty, marker-mangled, or rejected by the parser (I-196): the guard that
+  correctly lets a stage-only plan through was keyed on "no task items", which a broken surface also
+  satisfies. A resolved `tasks.md` is now the declaration surface whatever state it is in — a broken
+  one answers `NOITEM` and `done` refuses with exit 5, as the contract in that file always said. A
+  plan file still answers `NOFILE` and stays ungated; `Eval: none` still waives.
+
+### Fixed — a plan name from an `mb-plan` marker can no longer leave `plans/`
+
+- `<!-- mb-plan:../../secret/leak.md -->` used to be joined straight onto the plans directory, so
+  `mb-checklist-v2.py apply` opened that file and rendered its `# ` heading as the block title, and
+  a crafted marker could flip a live plan to "closed" (I-195). A marker value is now checked before
+  any join — `memory_bank_skill/checklist_v2.py::is_safe_plan_name`, the rule `resolve_spec_source`
+  already applies to spec locators — and the resolved file must still sit under `plans/`, so a
+  symlink pointing out of the bank is not that plan's file. The block itself is never deleted or
+  rewritten: it keeps its stages and falls back to the raw marker value as its title (AGR-043).
+
+### Fixed — `mb-checklist-prune.sh`: an archive is identified by its text, not its heading
+
+- Two `### ` sections sharing one heading no longer collide (I-194): the drop key is
+  `legacy:<sha1(text)>:<heading>` — one implementation, `memory_bank_skill/checklist_v2.py::legacy_key` —
+  and both the "already archived" decision and the pre-`--drop` confirmation now look for the full
+  `heading + body` in `progress.md`, so a stale heading can no longer certify a removal that never
+  landed (AGR-043: information is never deleted).
+
+### Fixed — Codex: localized global `AGENTS.md`, hooks Codex actually runs
+
+- `install.sh --language <code>` now localizes the Memory Bank block in `~/.codex/AGENTS.md`
+  like the Claude and Pi blocks; a Russian install used to leave "respond in English" there.
+- `adapters/codex.sh` writes `.codex/hooks.json` in Codex's schema —
+  `hooks.UserPromptSubmit[].hooks[] {type: "command", …}`. The flat lowercase `userpromptsubmit`
+  key it wrote before is ignored by Codex CLI (verified on 0.144.1), so the prompt guard and the
+  update notice never ran. Only `hooks` stays at the top level — Codex skips the whole file
+  when it has unknown top-level keys, so the MB-added `version` / `_mb_warning` are gone.
+  Re-install migrates the legacy MB entry and keys and keeps foreign hooks, plus a
+  user's own `version`. Codex loads project hooks only in a trusted project.
+
+### Changed — BREAKING: hard line caps on `status.md` / `checklist.md`, enforced by a Stop hook
+
+- `status.md` and `checklist.md` are strict registries (AGR-043): the first holds only the current
+  state, the second only the plans in flight. The caps are now **code, not a header sentence** —
+  new `scripts/mb-core-cap.sh check|fix [--mb <path>] [--json]` reports
+  `status_lines/status_cap checklist_lines/checklist_cap over=<csv|none>` and exits 1 when over.
+  Caps resolve `MB_STATUS_MAX_LINES` / `MB_CHECKLIST_MAX_LINES` → `<bank>/.mb-config`
+  `status_max_lines=` / `checklist_max_lines=` → **60 / 100**.
+- `fix` composes the existing deterministic repairs — `mb-status-rotate.sh --apply` +
+  `mb-checklist-prune.sh --apply` — and re-checks. Exit 1 = still over, dispatch MB Manager
+  `action: actualize --strict`; **exit 3** = the checklist is over cap with live plans, passed
+  through from the prune unflattened because that is an owner decision (pause or close plans),
+  never a trim of live work. Nothing leaves a core file before it is verified in `progress.md`.
+- **BREAKING — `hooks/mb-checklist-autoprune.sh` is deleted** (SessionEnd, opt-in via
+  `MB_CHECKLIST_AUTOPRUNE=on`) and replaced by the Stop hook `hooks/mb-core-cap-guard.sh`, which is
+  **ON by default** — a deliberate departure from the "opt-in by default" design principle, decided
+  by the owner: a cap that only runs when someone remembers to enable it is the state this hook
+  exists to end. It runs `mb-core-cap.sh fix` and, when still over, blocks the stop **once per
+  session** (marker `<bank>/.core-cap.nudged.<session_id>`, `.gitignore`d) with
+  `dispatch MB Manager action: actualize --strict`. Kill-switch: `MB_CORE_CAP=off` (env) or
+  `core_cap=off` in `<bank>/.mb-config`. `stop_hook_active`, no bank, no jq, or any tool error → allow;
+  a cap guard must never wedge a session. `MB_CHECKLIST_AUTOPRUNE` is now dead — remove it from
+  your environment.
+- New MB Manager action `actualize --strict` (`agents/mb-manager.md`) is the LLM half of the repair:
+  `status.md` is rewritten to the canonical `templates/.memory-bank/status.md` skeleton while every
+  dated/archive/backlog section moves VERBATIM into `progress.md` via `mb-work-progress-append.sh`
+  (append verified before the section is cut) and raw ideas go to `backlog.md` via `mb-idea.sh`;
+  `checklist.md` is only compacted; `⬜` counts must be identical before and after; plans to close or
+  pause come back as a **suggestion list** for the owner. It ends with `mb-core-cap.sh check` and may
+  not report DONE on an unverified cap. Router: `/mb update --strict`; `/mb done` step 5 now calls
+  `mb-core-cap.sh fix` (which still runs the Stage-4 rotation inside).
+- `mb-drift.sh` check 17 `status_size` → **`core_cap`**: it delegates to `mb-core-cap.sh check`
+  instead of measuring `status.md` in bytes. The 24 KB threshold was the wrong unit — a rotated
+  `status.md` sat at 223 lines and 39 KB while the byte check had been reporting `ok` at 25.6 KB only
+  by luck of size, and lines are what the cap is about. `checklist.md` is covered by the same check.
+- `hooks/mb-session-start-context.sh` adds one line when a bank is over cap:
+  `[core-cap] status.md N/60, checklist.md N/100 — /mb update --strict`. Silent otherwise.
+
+
+### Added — `mb-coord.sh`: read the coordination board without reading the board
+
+- `scripts/mb-coord.sh active [--tail N] [--mb <path>]` prints only what a session must act on —
+  active FREEZEs, HANDOVERs with no ACK, the last `N` entries verbatim (default 3), and one
+  `board: <entries>, <bytes> — full file: <path>` line. On this repo's board that is **2 696 bytes
+  instead of 208 588** (77×), with the in-force freeze still visible. Every agent/command file that
+  said "read the board" now points at the command; the full file is for investigating history.
+- Entry type comes from the heading tag — `## <TYPE> · YYYY-MM-DD · <scope>` where TYPE is
+  `FREEZE` / `LIFT` / `HANDOVER` / `ACK` / `STATUS`. A LIFT cancels an *earlier* FREEZE with the same
+  scope (text after the last `·`); an ACK cancels an earlier HANDOVER. Untagged legacy headings read
+  as STATUS, **except** an entry whose body declares a freeze in a **bolded** `FREEZE REQUEST` /
+  `⚠️ FREEZE` line — reported as a `[legacy]` freeze, because a freeze the reader never sees invites
+  the destructive git op the board exists to prevent. Prose merely mentioning a freeze is not bolded
+  and is not a declaration; legacy freezes are cleared with a tagged `## LIFT ·`.
+- `mb-coord.sh append --type <T> --title <t> [--body-file <f>]` writes a canonically tagged entry
+  through an owner-token lock + atomic `mv` (same discipline as `mb-work-progress-append.sh`), and
+  creates the board with a header when absent. Unlike the progress helper it fails **loudly**
+  (exit 1) when it cannot publish — a silently dropped FREEZE announcement is the accident this
+  board prevents.
+
+### Changed — BREAKING: `checklist.md` v2 — one block per plan, closed work moves to `progress.md`
+
+- The checklist is now a registry of plans in flight: one `<!-- mb-plan:<file> -->` block per plan
+  (not per stage), headed `## <plan title> — k/n`, with one `- ✅|⬜ Stage N — <name>` line per stage.
+- Nothing is ever deleted (AGR-043). `mb-checklist-prune.sh --apply` folds a plan's legacy v1
+  per-stage blocks into its single v2 block, and moves a closed plan's block — plus fully-✅
+  `### ` sections linking `plans/done/…`, which used to collapse into a one-liner — **verbatim**
+  into `progress.md` under `## [checklist archive] <date> — <label>`, through the locked
+  append-only `mb-work-progress-append.sh`. An append that cannot be confirmed on disk leaves the
+  checklist untouched. Open `⬜` lines of a live plan are never moved.
+- Line cap resolves as `MB_CHECKLIST_MAX_LINES` → `<bank>/.mb-config` `checklist_max_lines=` → `100`
+  (was a fixed 120-line warning). Still over cap after compaction → **exit 3** with a per-plan
+  diagnostic listing each plan's open count: the fix is to pause or close plans, never to trim
+  live work. The file's own `cap ≤NNN lines` header line is rewritten to the resolved cap.
+- `mb-plan-sync.sh` upserts the v2 block (idempotent by marker + stage number, never resets a ✅)
+  instead of appending a `## Stage N: <name>` section per stage; `mb-plan-done.sh` no longer
+  deletes checklist sections — closing the plan hands the block to the archiving compactor;
+  `mb-work-checkbox.sh flip` now mirrors a gated DoD flip onto the checklist stage line and
+  recomputes `k/n` (fail-open: a missing block warns, never fails the loop).
+- New `scripts/mb-checklist-v2.py` (+ `memory_bank_skill/checklist_v2.py`) is the single
+  reader/writer for the format; the opt-in `hooks/mb-checklist-autoprune.sh` uses the same cap
+  resolution.
+
+### Added — `mb-status-rotate.sh`: `status.md` rotation into `progress.md`
+
+- Dated `## ` sections (heading carrying a `YYYY-MM-DD`) past the newest `--keep N` (default 3)
+  move verbatim into `progress.md` as `## [status archive] <heading>` blocks, written through the
+  locked append-only `mb-work-progress-append.sh`. Undated sections (`## Current phase`,
+  `## Open backlog`, `## ⏭ …`) never move and survivor order is unchanged.
+- `--apply` leaves a `.status.md.bak.<ts>` and rewrites `status.md` atomically; `--dry-run`
+  (default) only prints the plan. Because the append helper is fail-safe (exit 0 without
+  appending on lock timeout), every block is verified present in `progress.md` before `status.md`
+  is touched — a lost append aborts with exit 1 instead of dropping a section.
+- Wired into the actualize step shared by `/mb done` and `/mb update` (`agents/mb-manager.md`
+  actualize step 2, `commands/done.md` step 5) and
+  `mb-drift.sh` now warns when `status.md` exceeds 24 KB.
+
+### Changed — BREAKING: `mb-context.sh` caps each core file (default 12 KB, `--full` restores)
+
+- `status.md`, `roadmap.md`, `checklist.md` and `research.md` are now trimmed to a per-file byte
+  budget resolved as `MB_CONTEXT_MAX_BYTES` → `<bank>/.mb-config` `context_max_bytes=` → `12288`.
+  Trimming keeps whole units — `## ` sections of `status.md`, unfinished `⬜` checklist items —
+  and appends one `[context] <file>: shown N of M lines` marker per trimmed file.
+- `mb-context.sh --full` (and `MB_CONTEXT_MAX_BYTES=0`) restores the previous unbounded output
+  byte for byte. With the default, `/mb context` drops from 118 KB to 39 KB on this bank and from
+  337 KB to 46 KB on a large external bank (the plan's 16 KB default was lowered to 12 KB after
+  measurement, AGR-039).
+
+### Changed — BREAKING (this bank only): default workflow is now `execution`
+
+- This repository's own `.memory-bank/pipeline.yaml` moved `workflow.default` from
+  `codex-governed` to `execution` (implement → verify → done) and turned the `review.enabled` /
+  `judge.enabled` toggles off. The governed cycle is now opt-in per run:
+  `/mb work <target> --workflow codex-governed` (or `--review --judge`) — which is how the
+  `sdd-vision-pipeline` group must keep running it (AGR-028/029). Reason: the 2026-09-05 cost
+  audit (option A) measured a governed item at 123-148 min and 10-12 Task dispatches. The bundled
+  `references/pipeline.default.yaml` is unchanged — it already carries `execution` with review and
+  judge off, so no other project's behaviour changes.
+- `docs/mb-work.md` and `commands/work.md` gained a **Cost ladder** table
+  (`implement-only` / `execution` / `codex-governed` / `governed-execution`) with the Sprint-1
+  baseline for dispatches and test runs per item.
+
+### Added — `/mb cost`: transcript cost report (mb-work-cost-diet Sprint 1, Stage 1)
+
+- `scripts/mb-cost-report.py` (CLI) + `memory_bank_skill/cost_report.py` (parsing) mine a Claude
+  Code transcript store (`~/.claude/projects/<slug>/`) into three cuts: per session (turns, tool
+  calls, Task dispatches, output / cache tokens, peak context), per subagent role (implementer /
+  verifier / reviewer / judge / manager / research / other, classified from the dispatch prompt —
+  identity headings and frontmatter `name:` first, body markers as fallback), and per work item
+  (the orchestrator segment between `mb-work-state.sh init` and `mb-work-checkbox.sh flip`).
+  `--project <dir>` (default: the cwd's store), `--since N`, `--json` (the baseline format the
+  cost-diet sprint gates diff against). Baselines saved under `.memory-bank/reports/`.
+
+### Fixed — `/mb work` `done` gate refused every PLAN stage (exit 5 `NOITEM`)
+
+- `mb-work-state-lib.sh::eval_declaration` treated any `.md` `--source-path` as a spec `tasks.md`;
+  a plan file (stage-only items) therefore answered `NOITEM` instead of `NOFILE`, and
+  `mb-work-state.sh done` refused to certify — so no plan-based `/mb work` run could flip its DoD
+  through the sanctioned `done → flip` sequence since the r3 declaration binding (2026-07-20). A
+  stage-only source is now `NOFILE` (`eval_gate: unverified:no_declaration_surface`, as designed);
+  a real `tasks.md` lacking the item still fails closed. Regression suite:
+  `tests/bats/test_mb_work_state_plan_source.bats`.
+
+### Fixed — `/mb work` plan stages: explicit `**Role:** developer` was ignored
+
+- `mb-work-plan.sh` treated `developer` as "no explicit role" and re-ran its keyword heuristic, so
+  any plan stage whose Testing section mentioned `pytest`/`bats` was routed to `mb-qa` even when the
+  author pinned `**Role:** developer`. `mb_work_items.py` now flags `role_explicit` on the parsed
+  item and the planner trusts it; spec tasks were already correct. Regression test:
+  `tests/pytest/test_mb_work_plan.py::test_plan_stage_explicit_role_developer_beats_qa_heuristic`.
+
+### Added — Code graph: auto-update + honest staleness (I-133)
+
+- **Bounded inline catch-up** (`memory_bank_skill/codegraph_catchup.py`, `mb-graph-query.py catchup`):
+  graph queries (`neighbors`/`impact`/`tests`/`explain` and `mb-code-context.py`) consume the new
+  `codebase/.graph-dirty` queue before answering — incremental rebuild (per-file SHA cache: only
+  changed files are reparsed) under a non-blocking flock, killed at `MB_GRAPH_CATCHUP_BUDGET`
+  (default 30 s); a failed/timed-out attempt sets a cooldown (`MB_GRAPH_CATCHUP_COOLDOWN`, 600 s)
+  so queries never pay the budget repeatedly. Git-HEAD drift vs the graph's meta row also triggers
+  catch-up (covers merges/checkouts without installing git hooks). Opt-in build layers
+  (`--docs`/`--cochange`/`--sessions`/`--questions`) are detected and preserved. Kill-switch:
+  `MB_GRAPH_AUTOUPDATE=off`. First build stays manual.
+- **Dirty-queue writers, never rebuilders (I-132 discipline)**: `file-change-log.sh` (PostToolUse)
+  appends source-file edits to `.graph-dirty`; SessionStart `MB_GRAPH_AUTO` and the opt-in git
+  post-commit hook now only mark the queue — their detached background `mb-codegraph.py` spawns
+  are REMOVED (2 spawn points). SessionEnd runs a bounded synchronous catchup.
+- **Stale graph is announced, not hidden**: `mb-graph-nudge.sh` no longer goes silent on a stale
+  graph (the vicious circle that kept graphs unused) — it says stale + how to refresh (honestly:
+  the auto-catchup promise appears only when a catch-up will actually fire — dirty queue or
+  commit drift; age-only staleness points at the manual refresh); the session-start cheat-sheet
+  gains a graph-freshness line for projects that have a graph.
+- **Codex-review hardening (round 1)**: the instruction layer follows the same discipline —
+  `commands/work.md` 5g and `agents/mb-tooling-core.md` now route graph refresh through
+  `mb-graph-query.py catchup` (the legacy detached rebuild + ad-hoc `.graph-rebuild.lock`
+  instructions are gone, with contract tests scanning `commands/`+`agents/`); the builder records
+  its opt-in `flags` in the graph meta row so catch-up preserves layers deterministically
+  (substring sniffing is legacy-only fallback); the catch-up builder runs in its own process
+  group and a budget kill reaps the whole group (no orphaned git grandchildren). Round 2: the
+  ACTIVE plan `code-graph-activation` (queued, executable mb-stage blocks) still carried the
+  legacy detached snippet — superseded notes + current-discipline snippets written in, and the
+  spawn scan now also covers active `.memory-bank/plans/*.md`; `references/code-graph.md`
+  post-commit section updated to the mark-dirty reality.
+
+### Changed — Semantic recall: model-free hot path + spawn discipline (I-132 OOM fix)
+
+- **BM25 is the default recall backend** (`hooks/lib/bm25.py`, meta-only Okapi BM25): the
+  per-prompt UserPromptSubmit hook no longer loads the ONNX embedding model — a recall process
+  is ~50–75 MB / <0.5 s instead of ~2.5 GB. Embeddings are opt-in (`MB_SEMANTIC_BACKEND=embeddings`)
+  behind a non-blocking singleton flock (`.model.lock`); a busy model degrades to BM25 instead of
+  loading a second copy. The CLI arms a hard process deadline (timeout+5 s) so a stuck native
+  model load can never linger as a multi-GB zombie.
+- **No detached indexers**: SessionStart/SessionEnd hooks now only mark the index dirty
+  (`.index/.dirty`); the next recall reindexes inline under `.write.lock` (busy → skip, search
+  stale). Previously N closed sessions = N parallel unbounded model-loading reindexers — the
+  direct cause of the machine-level OOM (JetsamEvents 2026-07-13…19).
+- **Index sources**: `agreements.md` and `progress.md` are first-class recall sources (kinds
+  `agreement`/`progress`, ranked above session logs); raw transcripts are opt-in
+  (`MB_SEMANTIC_INDEX_TRANSCRIPTS=1`, default off — session summaries already distill them).
+- **Prompt gating**: slash-commands and prompts shorter than `MB_SEMANTIC_MIN_PROMPT` (default 24)
+  skip recall before any python spawn; fenced code blocks are stripped from the query; default
+  top-k 5→3.
+- fastembed model cache moved to `~/.cache/fastembed` (`FASTEMBED_CACHE_PATH` respected) — the old
+  `$TMPDIR` cache was purged by macOS, forcing re-downloads. Embedding batches capped at 64 to
+  bound onnxruntime arena growth on big reindexes.
+- **Pi adapter follows the same spawn discipline**: `adapters/pi_session_memory_extension.ts` no
+  longer detaches `mb-reindex.sh --incremental` on session_shutdown (the 5th spawn point, missed
+  by the shell-only sweep) — it writes `.index/.dirty` (honoring `MB_INDEX_DIR`) like the Claude
+  Code lifecycle hooks. Maintenance commands (`index`/`reindex`/`prune`) now arm the same hard
+  process deadline as `search`, so no entry point can hold the machine-wide model lock forever —
+  with their own generous budget (`MB_SEMANTIC_MAINTENANCE_TIMEOUT`, default 300 s), decoupled
+  from the per-prompt search budget so a legitimate `reindex --full` of a large bank completes.
+
+## [5.3.1] — 2026-07-15
+
+### Added — OpenSpec import adapter (`/mb openspec`)
+
+- **`scripts/mb-openspec.sh` + `scripts/mb-openspec.py`** — one-way import adapter: an OpenSpec
+  `changes/<id>/` (proposal + delta specs `ADDED/MODIFIED/REMOVED/RENAMED` + tasks) is parsed
+  directly (no `openspec` CLI dependency) and written as an MB spec triple under
+  `specs/<topic>/{requirements,design,tasks}.md`. The OpenSpec tree is read-only; every write is
+  asserted under `.memory-bank/` (topic path-traversal + symlink-escape guarded). Deterministic core.
+- **Drift-aware `list`/`status`/`sync`** — `import` records `openspec_source`/`openspec_hash`
+  frontmatter; `list [--all]` reports `imported`/`drifted`/`not-imported`, `status <topic>` one
+  topic, `sync [<topic>]` re-imports only on hash drift (a match is a pure no-op, no write).
+- **Re-import preserves work** — `REQ-NNN` reused by requirement name (not document position),
+  `/mb work` task check-state preserved by text, orphaned tasks appended to `backlog.md` (never
+  silently dropped), crash-consistent write order (orphans durable first, hash written last).
+- **Opt-in `--normalize`** — fills LLM text slots (prose-SHALL → EARS, missing scenario, `Covers`),
+  cached by source-requirement hash so an unchanged requirement never regenerates, fail-open (LLM
+  unavailable → deterministic fallback + warn). Omit for the byte-deterministic path (NFR-001).
+- Spec `.memory-bank/specs/openspec-adapter/` (20 REQs, 6 tasks); 81 pytest + 15 bats. Cleared a
+  4-round Codex GPT-5.5 review + Opus verification gate (all findings fixed, round-4 APPROVED).
+
+### Added — Running list of agreements
+
+- **`scripts/mb-agree.sh`** — the single writer for the canonical registry of confirmed
+  decisions (`<bank>/agreements.md`): `add [--supersedes N] [--adr NNN] [--source S] | defer |
+  reject | question | resolve | list [--all] | sync`. Monotonic never-reused `AGR-NNN`/`Q-NNN`
+  IDs issued under an atomic owner-token `mkdir` lock (kill-0 PID-liveness stale-break), every
+  write temp-file + `mv`. Lazy: nothing exists until the first `add`. Kill-switch `MB_AGREEMENTS=off`.
+- **Managed-block sync** — after every mutation the active one-liners are rendered into a
+  `<!-- mb-agreements:start/end -->` block in project-root `CLAUDE.md`/`AGENTS.md` (replace between
+  markers only, surrounding bytes preserved; distinct from the adapters' `memory-bank:*` block), so
+  a fresh session sees the full canon with no extra tooling. `> 25` active warns, never truncates.
+- **`/mb agree` + `/mb verify` integration** — router entry in `commands/mb.md` + `commands/agree.md`;
+  the Plan Verifier classifies every active agreement as satisfied / violated / not-applicable and
+  fails the verdict on any violation (`agents/plan-verifier.md`, Step 3.7). Rules trigger in
+  `rules/RULES.md` + `rules/CLAUDE-GLOBAL.md`; full protocol in `references/agreements.md`.
+- Spec triple `.memory-bank/specs/agreements/{requirements,design,tasks}.md` (16 REQs, 8 tasks);
+  70 bats across `test_mb_agree.bats` + `test_mb_agree_docs.bats`, green on bash 3.2 and default.
+
+### Added — SessionStart "newer release?" notice + opt-in auto-update
+
+- **`scripts/mb-version-check.sh`** — the single resolver for "is a newer release out?":
+  compares the local `VERSION` against the latest GitHub Release (PyPI JSON as fallback),
+  TTL-cached (`MB_UPDATE_CHECK_TTL`, default `86400`), strict JSON output, fail-open on every
+  network/parse error.
+- **`hooks/mb-update-notify.sh`** — SessionStart hook rendering that answer: silent when
+  up to date, otherwise a ≤3-line notice naming `current -> latest` and the exact upgrade
+  command for the detected install flavor (git/pipx/pip/brew). Reads the cache only
+  (`--cache-only`, no network from the hook path itself) and fires a detached background
+  refresh when the cache is cold. `MB_UPDATE_CHECK=off` disables the check entirely.
+- **Opt-in auto-update** (`MB_AUTO_UPDATE=on`, default `off`): applies the update automatically
+  via `mb-upgrade.sh --force`, but only for a `git clone` install with a clean working tree — a
+  dirty tree refuses, and pipx/pip/brew installs are never auto-run, only named in the notice.
+  Fail-open: a stuck or failing auto-update attempt never blocks the session.
+- Docs: `commands/mb.md` `upgrade` section, `SKILL.md` hooks table, `README.md` "Staying up to
+  date" section, and `references/structure.md` control envelopes cover the three new env vars
+  (`MB_UPDATE_CHECK`, `MB_UPDATE_CHECK_TTL`, `MB_AUTO_UPDATE`).
+
+## [5.3.0] — 2026-07-13
+
+### Fixed — a broken `main` reached PyPI; this release is the repair
+
+- **`templates/` were missing from the published 5.2.0 wheel**
+  ([#2](https://github.com/fockus/skill-memory-bank/issues/2)): a fresh
+  `pipx`/`pip` install could not run `/mb init` at all — `mb-init-bank.sh` exited
+  3 (`missing template bundle`) for every locale, blocking the very first
+  onboarding step. The packaging fix landed on `main` after 5.2.0 was cut, so it
+  never reached users; 5.2.0 cannot be re-uploaded to PyPI. **This release is the
+  first one that actually ships the locale bundles.** Guarded by
+  `tests/pytest/test_wheel_ships_templates.py`, which asserts the built wheel
+  contains `templates/locales/<lang>/.memory-bank/`.
+- **`scripts/_lib.sh` shipped with a bash syntax error** — an unterminated
+  heredoc quote (`<<'PY` instead of `<<'PY'`). `_lib.sh` is sourced by every
+  `mb-*.sh`, so the whole toolchain was dead: `mb-adr.sh` exited 2, `mb-review.sh
+  --emit-payload` failed, and the install/calibration suites went red.
+- **`hooks/mb-session-turn.sh` shipped with raw merge-conflict markers** —
+  unparseable, so every turn-capture path was dead and each deploy re-installed
+  the broken copy. Resolved by merging both sides: the Live-log splice + bullet
+  cap + stale-summary invalidation, *and* `sc_strip_private` (the I-082 control
+  that keeps `<private>…</private>` spans off disk — picking either side alone
+  would have silently reverted a shipped security fix).
+- **Repeat installs were not idempotent**: the paired-marker branch backed up a
+  `CLAUDE.md` that `install.sh` itself had written, minting a fresh
+  `.pre-mb-backup.*` on every re-run and making the install manifest's `backups`
+  list differ run to run. A backup is now taken only when real user content lives
+  outside the managed block (A13's guarantee is unchanged).
+- **Capture test suites were not hermetic**: they inherited `MB_AUTO_CAPTURE`
+  from the developer's shell, so a dev with it exported to `off` saw six false
+  reds that were written off as a "known baseline". `setup()` now normalizes the
+  `MB_*` environment.
+
+### Added — cross-session coordination
+
+- **`references/coordination.md`** — the append-only `COORDINATION.md` board
+  protocol for two or more agent sessions sharing one working tree (read the
+  board before stages/commits/shared-file edits, scoped `git add` only, FREEZE
+  entries need an ACK). Wired into `CLAUDE.md`, `rules/`, `agents/`, and
+  `commands/{start,commit,work}.md`. The docs referenced this file before it
+  existed; it now ships.
+
+### Added — Reviewer 2.0 (calibrated, tests-aware review)
+
+- **`scripts/mb-review.sh`** — a deterministic review-payload orchestrator
+  (`--emit-payload`): assembles the single markdown payload the reviewer
+  judges (plan context, diff, calibration examples, prior test evidence, and
+  an auto-generated `tests` blocker when touched-file tests are red) without
+  ever dispatching an LLM itself. Supports `--input <case-dir>` so the same
+  production code path can run offline against a fixture (see the calibration
+  suite below).
+- **`scripts/mb-review-cache.sh`** — the touched-file test-evidence cache
+  (`.memory-bank/tmp/last-tests.json`): TTL-bounded HIT/MISS keyed on a
+  touched-files sha, with `--refresh-tests` as the manual force-MISS escape
+  hatch.
+- **Layered calibration examples** — `scripts/mb-review-examples.sh` resolves
+  few-shot rubric examples from `references/rubric-examples/{common,python,
+  go,typescript,frontend,mobile,backend}.md`, with an optional project
+  override at `.memory-bank/rubric-examples/` taking precedence on
+  `example_id` collision. Every stack ships >=3 examples per category
+  (`logic`/`code_rules`/`security`/`scalability`/`tests`).
+- **`--require-tests-blocker`** (`scripts/mb-work-review-parse.sh`) — the
+  REQ-103 "cannot drop" safety net: if a reviewer output drops or downgrades
+  the auto-injected `tests`/`blocker` finding for a known-red touched-file
+  test run, the parser restores it and forces `CHANGES_REQUESTED`. Opt-in —
+  only ever passed when touched-file tests are already known to be failing.
+- **Golden calibration suite** (`tests/calibration/`) — a runnable regression
+  harness against reviewer verdict drift: 5 case fixtures (one red-tests
+  case), an offline `--emit-payload` smoke path (no LLM/network, exercised by
+  `tests/bats/test_calibration_suite.bats`), the full PASS/WARN/FAIL match
+  metric, and a documented (not yet added — see `tests/calibration/README.md`)
+  non-blocking weekly `workflow_dispatch`/`schedule` CI job.
+
+**Compatibility.** Additive and opt-in throughout — default `/mb work`
+behavior is unchanged unless a project explicitly wires the new review
+orchestrator or opts into `--require-tests-blocker` (REQ-105). Existing
+`pipeline.yaml` files without the new keys keep working via resolver
+defaults.
+
+**Migration.** None required. Projects that want project-specific calibration
+examples may optionally add `.memory-bank/rubric-examples/{common,<stack>}.md`
+overrides (same `example_id`/`stack`/`category`/`severity` front-matter +
+`### Bad` / `### Expected verdict fragment` block format as the bundled
+`references/rubric-examples/` baseline); everything else keeps using the
+skill-bundled baseline unchanged.
+
+### Added — work-loop-v2: sprint contracts, progress trend, strategic pivoting (REQ-110/111/112/114)
+
+- **`scripts/mb-work-contract.sh`** — per-work-item **sprint contract**: `create` scaffolds
+  `<bank>/contracts/<plan-topic>_stage-<N>.md` (idempotent — never clobbers an existing draft),
+  `read`/`path` resolve it, `validate` checks all 7 frontmatter keys and 6 body sections (In scope /
+  Plan of attack / Test plan / DoD checkpoints / Out of scope / Open risks) are present. Paired with
+  `templates/contract.md` and a new `review_mode: contract` toggle documented in `agents/mb-reviewer.md`
+  (4-category rubric: `scope`/`dod`/`test_plan`/`out_of_scope`; a silent/empty out-of-scope section is a
+  blocker). Opt-in — `/mb work --contract` for one run, or a project's own
+  `pipeline.yaml:review.require_contract: true` to make it mandatory; capped at 3 contract-review cycles
+  before a hard stop for human. Off by default; existing `/mb work` runs are unaffected.
+- **`scripts/mb-work-trend.sh`** — `key` derives a stable sha256 item key from `(plan, stage, item)`;
+  `compute` reads a normalized reviewer verdict (`mb-work-review-parse.sh` output) and prints this
+  cycle's `progress_trend` (`improving` / `stagnant` / `regressing` / `null` on the first cycle),
+  maintaining the previous-cycle cache at `<bank>/tmp/last-verdict-<item-key>.json`
+  (`weighted_score = 10*blocker + 3*major + 1*minor`). This is the signal `mb-work-pivot.sh` consumes
+  to decide whether the loop is actually making progress.
+- **`scripts/mb-work-pivot.sh`** — `decide` turns a tracked `consecutive_stagnant` count and the current
+  cycle number into `refine` / `pivot_in_role` / `pivot_via_architect`, thresholds resolved from
+  `pipeline.yaml:review.pivot_after_cycles` (default 2) and `review.pivot_escalate_to_architect_on`
+  (default 4, both already present in `references/pipeline.default.yaml`). `prompt-prefix` emits the
+  re-dispatch instruction text (discard-and-restart for `pivot_in_role`; the two-step
+  architect-then-role-agent escalation for `pivot_via_architect`). Every non-`refine` decision appends
+  one JSONL telemetry line (`ts`/`item_id`/`cycle`/`mode`/`rationale_hash`) to
+  `<bank>/tmp/pivot-log.jsonl` (not git-tracked — local analysis data only).
+- **`commands/work.md`** — new "Sprint contracts, progress trend, and strategic pivoting" section wires
+  all three scripts into the existing implement→verify→review→judge→fix loop: the contract phase runs
+  before the implement step, trend is computed every review cycle from the normalized verdict, and a
+  stagnant trend routes the fix-cycle into a pivot dispatch instead of an indefinite refine loop. All
+  three scripts only emit decisions/strings — dispatch stays the host agent's job (agent-native, same
+  as the rest of `/mb work`).
+
+**Compatibility.** Fully additive and opt-in. A project that never sets `--contract` /
+`require_contract` never runs the contract phase; trend/pivot only change behavior once a review cycle
+actually reports `CHANGES_REQUESTED` with a stagnant trend for `pivot_after_cycles` consecutive cycles —
+until then the loop's existing refine behavior is unchanged byte-for-byte.
+
+**Known gap (backlog I-099).** `scripts/mb-review.sh` reserves a `last_verdict_cache_path()` hook for the
+same cache file but does not yet write to it and derives the key differently from
+`mb-work-trend.sh key`; callers must always derive the item key through `mb-work-trend.sh key` until the
+two are reconciled.
+
+### Changed — work-loop-v2: fail-fast `on_max_cycles` default (REQ-113)
+
+- **`on_max_cycles` now defaults to `stop_for_human`** (was
+  `continue_with_warning`) in the bundled `references/pipeline.default.yaml`
+  `review:` block. When a project's `pipeline.yaml` omits `on_max_cycles`
+  entirely, the resolver (`scripts/mb-workflow.sh`) falls back to this new,
+  stricter default instead of quietly continuing past an exhausted fix loop.
+
+**Migration.** Existing `<bank>/pipeline.yaml` files are never rewritten by
+install/upgrade — the only writer, `scripts/mb-pipeline.sh init`, creates the
+file solely when absent and refuses to overwrite an existing one without
+`--force`. Projects that already explicitly set `on_max_cycles:
+continue_with_warning` keep that behavior untouched. **Projects that prefer
+the old soft behavior — including any relying on the previous default rather
+than an explicit setting — must add `on_max_cycles: continue_with_warning` to
+their `pipeline.yaml` explicitly.**
+
+## [5.2.0] — 2026-06-28
+
+### Added
+
+- **Context-window statusline** (`scripts/mb-statusline.py`): a Claude Code
+  statusline that shows how much of the context window is filled (`used/limit`,
+  1M-aware) alongside model · git branch · project. Reads Claude Code's status
+  JSON on stdin, counts the latest main-chain usage, and skips sidechain
+  (subagent) usage so subagent tokens never inflate the count. `/mb statusline`
+  (→ `mb-statusline.py --install`) wires it into `~/.claude/settings.json` with
+  a backup and refuses to clobber an existing `statusLine` unless `--force`.
+
+## [5.1.0] — 2026-06-22
+
+> **Consolidated 5.1.0.** The tier1 graph/session-intelligence layer ships
+> together with handoff-v2 persistence, the dynamic-flow firewall + router,
+> named pipelines, capability-aware dispatch, and the session-lifecycle
+> catch-up/summarizer. First PyPI publish since 5.0.1.
+
+### Added — dynamic-flow, session-lifecycle, SDD
+
+- **Dynamic-flow firewall + closure** (Phase 1): `scripts/mb-flow-verify.sh` is
+  the sole exit-code authority (0=pass / 1=fail / 2=broke); Stop-hook
+  (`mb-flow-closure-guard.sh`) + git-hooks closure guards gated on a `goal.md`
+  predicate; AGENTS.md firewall contract; goal primitive + validator. Shipped
+  through the governed dual-review (Codex + lead) + judge pipeline. (REQ-DF-010..062)
+- **Dynamic-flow router + patterns** (Phase 2): `analyze-task` deterministic
+  router, five-route catalogue, six workflow pattern templates, stateless
+  `mb-fanout.sh` agent-invoke + per-agent sub-invoke contract with
+  parallel-fence write-once discipline. (REQ-DF-070..084)
+- **Session-lifecycle**: `mb-session-catchup.sh` (SessionStart lazy-summarize of
+  sessions left `summarized:false` by a SIGKILLed SessionEnd), extracted DRY
+  `mb-session-summarize.sh`, `mb-session-prune.sh` (archive contentless stubs),
+  `mb-settings-ensure-timeout.py` (inject the SessionEnd timeout). All fail-safe.
+- **SDD hybrid requirements**: `requirements.md` now pairs Kiro User Stories with
+  EARS acceptance criteria; `mb-ears-validate.sh` is case-insensitive and
+  validates only the REQ bullets; `mb-plan.sh` plan template gains YAML
+  frontmatter (type/topic/status/depends_on/parallel_safe/linked_specs/created).
+- **Cursor extension** finished — sessionEnd registry auto-capture.
+
+> **handoff-v2.** A persistence layer that lets a long-running agent survive
+> context compaction and session boundaries: a small handoff capsule written
+> before compaction and restored at the next session, mandatory `/mb done`
+> gates that run even without an active plan, and a sha256 hash chain that makes
+> tampering of historic `progress.md` entries a CRITICAL drift. Shipped through
+> the governed dual-review (Codex + lead) + judge pipeline, with a fix-cycle per
+> task.
+
+### Added
+
+- **Handoff capsule** (`scripts/mb-handoff.sh` + `memory_bank_skill/handoff_capsule.py`).
+  `--actualize`/`--read`/`--rotate` a ≤1500-byte capsule under
+  `.memory-bank/handoff/`. The five sections (Now / Done / Open blockers / Next
+  concrete step / Pointers) always survive truncation — the skeleton is reserved
+  first and only the bullet lists are byte-fit, so the most important section is
+  never dropped. UTF-8-safe byte cap; colon-free archive names;
+  copy-then-atomic-rename so a capsule is never lost on interrupt; owner-token
+  `mkdir` lock for single-writer safety. (REQ-120)
+- **PreCompact actualize** (`hooks/mb-pre-compact.sh`, renamed from
+  `mb-compact-reminder.sh`). On `preCompact`, refreshes the capsule within a ~2s
+  portable budget and **never blocks compaction** — on timeout/failure/no-bank it
+  WARNs and exits 0, killing the whole actualize process tree (no orphans). Opt
+  out with `MB_PRECOMPACT_HANDOFF=off`. (REQ-120, REQ-121)
+- **SessionStart capsule consumption** (`hooks/mb-session-start-context.sh`).
+  Prepends the capsule only when it is newer than the *most recent* `progress.md`
+  date heading; otherwise the normal context is unchanged. (REQ-121)
+- **Mandatory `/mb done` gates** (`scripts/mb-done-gates.sh`). Tests + rules
+  (with `--diff-files` so the CRITICAL TDD-delta check runs) + placeholder scan,
+  honouring `done_gates.required`. `--force` requires a single-line `--reason`
+  (newline-injection rejected), records a NOTE in `progress.md` + a failure JSON,
+  and **fails closed** when `allow_force:false` or a project `pipeline.yaml`
+  cannot be parsed. Configurable via `pipeline.yaml:done_gates`. (REQ-122, REQ-123)
+- **Append-only hash chain** (`scripts/mb-progress-chain.sh` +
+  `memory_bank_skill/progress_chain.py`). `--rebuild-tail`/`--verify` a sha256
+  chain of the last 20 `progress.md` entries in `index.json:progress_chain`;
+  `mb-drift.sh` raises CRITICAL on a mismatch, deletion, ambiguous match, or a
+  **malformed** index.json. Canonical-form hashing (LF-normalised, trailing
+  separators excluded) keeps legitimate appends stable while in-body content and
+  whitespace edits remain tamper. (REQ-124)
+- **`scripts/mb-rules-check.sh --placeholders-only`** — scan-only mode for the
+  done-gate, with `tests/`-path and `# mb-rules-check: allow-placeholder`
+  exemptions.
+- **Docs** — `docs/handoff-2.0.md` (capsule lifecycle, done-gate + force
+  semantics, hash-chain limits).
+
+### Changed — defaults
+
+- `/mb done` now runs the done-gate set as step 0 (enabled by default; failures
+  require `--force --reason`). Existing plan/spec verification is unaffected.
+- `settings/hooks.json` registers `mb-pre-compact.sh` on `preCompact` (replacing
+  the old weekly compact reminder, which remains available in `adapters/cline.sh`
+  via `MB_COMPACT_REMIND`). Re-registration stays idempotent.
+
+### tier1-graph-memory (Phase 5) — 2026-06-14
+
+> **tier1-graph-memory.** Sharper code-graph retrieval (RRF fusion, import-aware
+> Python call resolution, PageRank god-nodes), richer session memory
+> (progressive-disclosure recall, per-turn outcomes, structured summaries), and
+> three new `$0` memory-hygiene commands (`/mb recap`, `/mb conflicts`,
+> `/mb consolidate`). Every new opt-in layer keeps base output byte-identical.
+
+### Changed — defaults
+
+- **RRF fusion is the default auto-backend in code search.** With embeddings
+  installed, `mb-semantic-search.py --backend auto` now fuses the embeddings and
+  BM25 rankings via Reciprocal Rank Fusion (`rrf_merge`, `by_id` built at index
+  time, `O(k)` query fusion) instead of using embeddings alone. `auto` without
+  embeddings stays pure BM25 (byte-identical to before); explicit `--backend
+  bm25`/`embeddings` are regression-locked. (REQ-001/REQ-002)
+- **Import-aware call resolution for Python.** `call` edges in `.py` files now
+  resolve through the file's actual imports — binding order is: local `def` wins
+  > explicit import (relative level + `as`-alias aware) > single star-import
+  match > unique project-wide fallback > suppress homonyms. Dotted `dst`
+  namespacing via the new `codegraph_binding.py`. Non-`.py` edges pass through
+  verbatim; the graph cache is bumped to `CACHE_VERSION=2`. Resolution for the
+  tree-sitter languages (Go/JS/TS/Rust/Java) stays name-based. (REQ-003/REQ-004)
+- **`god-nodes.md` is ranked by PageRank, with degree as a secondary column**
+  (was degree-only). Pure-stdlib power iteration (`networkx.pagerank` semantics,
+  no numpy/scipy) in `codegraph_rank.py`, full-precision sort with 6-dp display,
+  cross-process deterministic. Without `networkx` the report degrades to
+  degree-only and prints a one-line install hint. (REQ-005/REQ-006)
+
+### Added
+
+- **`rrf_merge(rankings, k=60)`** — standalone Reciprocal Rank Fusion module
+  (`memory_bank_skill/rrf.py`), the single source of truth for rank fusion across
+  code search and `/mb recall`. (REQ-001)
+- **`churn_30d` ranking signal** under `/mb graph --cochange`. Per-file 30-day
+  churn is derived from the *same* git-log pass as co-change mining (one
+  subprocess, asserted) and emitted as additive `{"type":"node-attr"}` JSONL
+  rows only under `--cochange`; semantic search applies a `1+0.1·log1p(churn)`
+  boost after ranking/fusion over the full candidate set, then truncates. No
+  churn attrs → ranking byte-identical. (REQ-007)
+- **Community-summary retrieval in code search.** When a `/mb wiki` article lands
+  in the top-3 final hits, `mb-semantic-search.py` appends a labeled
+  `community_files` block (member files from `.wiki-packs.json`, sorted, capped
+  at 10). Fail-open: missing/malformed packs or non-article hits → byte-identical
+  no-wiki output. (REQ-008)
+- **Per-turn capture upgrade — `outcome` + diffstat.** Each session Live-log
+  bullet now records an `ok | err(N)` outcome (turn-scoped `is_error` count) and
+  an aggregate `+A/-B` diffstat from a single `git diff --numstat`; fails closed
+  outside work trees / bare repos. (REQ-009)
+- **Structured summary schema v2.** The session-end Haiku summarizer now consumes
+  the session's own distilled Live log (never the raw transcript tail) and is
+  prompted for exactly four sections — *What changed / Decisions / Open questions
+  / Files*. `summary_schema: v2` is stamped only after a strict in-order heading
+  validation passes (duplicate/out-of-order headings are rejected, see I-069);
+  non-conforming output is stored unflagged. (REQ-010/REQ-011)
+- **Progressive-disclosure `/mb recall`.** Default output is now a compact index
+  — one `id · age · summary · source` line per hit (~15 tokens/line, no chunk
+  bodies). `--expand <id>` returns one full chunk (exit 3 on unknown id),
+  `--full` keeps the legacy bodies. Semantic + lexical hits are fused via RRF
+  when the semantic backend is available (fail-open to lexical-only otherwise);
+  `[SUPERSEDED]` chunks sort last with a `⊘` label. (REQ-001/REQ-016–019)
+- **`/mb recap <sid>`** — rebuild a full `progress.md` entry from a session stub
+  via one Haiku call (`scripts/mb-recap.sh`). Surgically replaces only that
+  session's auto-capture stub (atomic temp→mv, neighbors byte-identical),
+  idempotent via `recapped` frontmatter; strict no-write refuse paths with pinned
+  exit codes (missing session/progress → 2, no claude → 3, no stub → 4,
+  error-shaped output → 5); ambiguous prefix → refuse and list candidates.
+  (REQ-020/REQ-021)
+- **`/mb conflicts [--judge] [--threshold N]`** — surface memory entries with
+  high lexical overlap *and* opposing/replacement assertions (en+ru negation
+  markers) as conflict candidates over `notes/` + `lessons.md` + recent
+  `progress.md`. `$0` default pass (token-set Jaccard > `N`, default 0.3, zero
+  LLM calls); `--judge` confirms/rejects each candidate via one Sonnet call and
+  prints a suggested `[SUPERSEDED: YYYY-MM-DD -> <ref>]` marker. PRINT-ONLY —
+  never writes to any bank file. (REQ-022/REQ-023)
+- **`/mb consolidate [--apply] [--days N]`** — fold sessions older than `N` days
+  (default 30) that cluster by shared files / lexical overlap into 5–15 line
+  `notes/` candidates, archive those session files verbatim → `session/archive/`,
+  and move only their contiguous auto-capture progress stubs verbatim →
+  `progress-archive.md`. Zero LLM calls; dry-run is the default (bank
+  byte-identical); real progress entries never move. (REQ-012/013/014)
+- **`[SUPERSEDED]` convention + drift checker.** The append-new + mark-old
+  `[SUPERSEDED: YYYY-MM-DD -> <ref>]` convention is documented in
+  `agents/mb-manager.md` + `references/metadata.md` and enforced by a new
+  `mb-drift.sh` checker: malformed markers and dangling refs across `notes/`,
+  `lessons.md`, `progress.md`, `session/` → greppable warnings + exit 1 (with
+  real Gregorian calendar validation). (REQ-015)
+- **`/mb graph --sessions` layer.** Bridges session memory into the code graph:
+  one `session` node per session that touched a graph module, a `worked_on` edge
+  to each touched module carrying a one-line work summary, and an append of that
+  summary to the module node's `doc` (capped at the 3 most recent sessions per
+  module) so semantic search answers work-history queries. Every
+  session-derived string is `redact_secrets`'d **and** `<private>`-stripped at
+  graph-write time (`graph.json` stays committable). The layer is applied as the
+  last mutation — after community/betweenness/PageRank analytics — so god-node
+  ranking is never skewed (`god-nodes.md` is byte-identical with or without the
+  flag). (REQ-024/025/026)
+- **Staleness-aware incremental `/mb wiki` rebuild.** `wiki/index.md` records a
+  per-article SHA256 over the canonical graph records touching each community's
+  files; a `$0` plan splits communities into scheduled vs fresh and filters the
+  dispatch — a fully-fresh cache → zero Haiku/Sonnet dispatches, `--force` or a
+  legacy/no cache → full rebuild. Hash recording is idempotent. (REQ-027)
+- **Deterministic Decisions section in wiki evidence packs.** Each community pack
+  can carry a `decisions` list — `notes/` entries + session summaries matched
+  against the community's file basenames (token-bounded matching), top-5 with
+  source refs, `$0`, deterministic order. Session files contribute only their
+  `## Summary` body (frontmatter / Live log / `### Files` path list never leak).
+  (REQ-028)
+- **`semantic` edge confidence bands documented + a 0.5 floor enforced.** The
+  `references/code-graph.md` reference now defines the meaning of `confidence` on
+  `semantic` edges (High ≥ 0.9 / Medium 0.7–0.9 / Low 0.5–0.7 / dropped < 0.5) as
+  the single source of truth; the wiki synthesizer assigns by these bands and
+  `merge-edges` enforces the `< 0.5` drop, so a `semantic` edge in `graph.json`
+  always means `confidence ≥ 0.5`. (REQ-029)
+
+### Added — named pipelines
+
+- **Multiple named pipelines per project.** A project can keep several pipelines
+  under `.memory-bank/pipelines/<name>.yaml`, each a full standalone config (same
+  schema + validator as `pipeline.yaml`) with its own model routing and workflow.
+  `/mb work --pipeline NAME` (or `$MB_PIPELINE`) selects one explicitly; a
+  pipeline whose `agents:` lists the current code-agent host
+  (`claude-code`/`pi`/`opencode`/`codex`/…) is **auto-selected per host**, so one
+  repo can run a fast solo loop under Claude Code and a governed review-ensemble
+  under pi/opencode with no flag. Selection ladder: flag/env → host binding →
+  `.mb-config pipeline=NAME` → in-file `default: true` → legacy `pipeline.yaml` →
+  bundled default.
+- **`/mb pipeline` command** (`commands/pipeline.md`): `list` ·
+  `new NAME [--agent a,b] [--from NAME|default] [--default] [--force]` ·
+  `use NAME` (non-destructive default switch via `<bank>/.mb-config`) · `show` ·
+  `path` · `validate [--all]` (cross-file conflict detection: duplicate
+  `pipeline_name`, more than one `default`, an agent bound to multiple pipelines).
+- `scripts/_lib.sh`: `mb_detect_host` (host from `$MB_PIPELINE_HOST` → `$MB_AGENT`
+  → env signatures), `mb_pipeline_dir`, `mb_pipeline_meta`. `mb-pipeline.sh`
+  selection ladder; `mb-pipeline-validate.sh` validates the optional
+  `pipeline_name`/`default`/`agents` metadata keys.
+- Consumers (`mb-work-*.sh`, `mb-workflow.sh`) read the selected pipeline with no
+  changes — they already resolve through `mb-pipeline.sh path`, which now honors
+  `$MB_PIPELINE` and host binding.
+- Backward compatible: with no `pipelines/` directory and no `--pipeline`,
+  resolution is byte-for-byte identical to the prior single-`pipeline.yaml` path.
+
+### Added — security
+
+- **Automatic secret redaction in session capture (default on).** Recognizable
+  API keys/tokens (`sk-…`, `ghp_…`/`github_pat_…`, `AKIA…`/`ASIA…`, `xox?-…`,
+  `AIza…`, `hf_…`, `npm_…`, `pypi-…`, JWTs, `Bearer <token>`, `*_API_KEY=`-style
+  env assignments) are replaced with `[REDACTED]` before they reach
+  `.memory-bank/session/*.md` or the semantic index. Applies at three layers:
+  the per-turn Live-log bullet, the transcript fed to the Haiku summarizer /
+  Sonnet judge, and the semantic chunker. Off-switch: `MB_REDACT_SECRETS=off`.
+  Implementation: `hooks/lib/redact.py` + `sc_redact_secrets` in
+  `hooks/lib/session-common.sh`. Regression for a real leak: an OpenRouter key
+  quoted in a transcript error was persisted verbatim.
+- Semantic-index chunker now also strips `<private>…</private>` blocks
+  (mirrors `mb-index-json.py`), closing the gap where private content was
+  excluded from `index.json` but still indexed for `/mb recall`.
+
+### Fixed
+
+- **I-069 — strict v2 heading state machine.** The schema-v2 summary validator
+  now rejects a duplicate or out-of-order `### …` heading instead of stamping
+  `summary_schema: v2` on it; a rejected body is still stored, just without the
+  (now-honest) flag.
+- **I-066 — unique-fallback binds module-level defs only.** Rule 3 of the
+  import-aware binder no longer collapses a class method (`Worker.process`) or
+  nested function to its bare suffix, so it can no longer invent a false `call`
+  edge to a non-module-level definition.
+- **I-067 — no leading-dot `dst` for root `__init__.py`.** A unique definition in
+  a root `__init__.py` (empty module prefix) now emits a bare `dst` instead of a
+  leading-dot `.foo`.
+- `session-end-autosave.sh` progress stub no longer promises a reconstruction
+  that never happened ("Details will be reconstructed on the next /mb start");
+  it now points at the actually-captured session summary (`/mb recall`).
+
+## [5.0.1] — 2026-06-11
+
+### Fixed
+
+- **pipx / pip / Homebrew installs no longer abort.** The `memory-bank` CLI now
+  exports `MB_PYTHON=sys.executable` (plus `MB_SKILL_BUNDLE`), and
+  `install.sh`/`uninstall.sh` run every embedded Python step through it. A bare
+  system `python3` cannot import `memory_bank_skill` from a pipx/venv install
+  and — under `set -euo pipefail` — aborted the whole install. Direct
+  `bash install.sh` from a git checkout is unaffected (falls back to `python3`).
+- **`/mb wiki` merge on Python 3.11/3.12.** `merge_semantic_edges()` used
+  `Path.read_text(newline=...)`, which only exists on Python 3.13; replaced
+  with `open(newline="")` so supported interpreters don't raise `TypeError`.
+- **`mb-semantic-search.py` argument order.** The optional `mb_path` positional
+  is now accepted after options (`query --json <mb_path>`) via
+  `parse_intermixed_args`.
+
+### Changed
+
+- README redesigned (centered hero + banner, nav anchors, v5 callout, stats
+  table, Diátaxis-grouped docs section, star-history footer); stale v4-era
+  claims fixed.
+- Landing page: `og-image.png` + `favicon.svg`, Open Graph / Twitter-card /
+  canonical metadata, refreshed documentation links.
+- PyPI metadata: `Development Status :: 5 - Production/Stable` + expanded
+  keywords.
+
+### Added
+
+- New docs: `docs/first-feature.md` (worked end-to-end example),
+  `docs/troubleshooting.md`, `docs/agents-reference.md` (all 29 subagents).
+- `SECURITY_AUDIT_REPORT.md` archived to `docs/security/audit-2026-04-21.md`
+  with a historical-snapshot note; `SECURITY.md` supported-versions table
+  refreshed.
+
+## [5.0.0] — 2026-06-10
+
+> **First PyPI release since 3.1.2.** Supersedes the tagged-but-never-published
+> 4.0.0 (its CI publish failed on a `__version__` drift, since fixed by reading
+> the canonical `VERSION` at runtime). 5.0.0 bundles all 4.0.0 content plus
+> everything below. See `docs/MIGRATION-v4-v5.md` for the breaking changes.
+
+### Changed — BREAKING
+
+- **Review is now OFF by default.** The default `/mb work` path is `execution`
+  (`implement → verify → done`) with no reviewer. The shipped
+  `references/pipeline.default.yaml` `stage_pipeline` no longer contains a
+  `review` step; the review policy moved to an opt-in top-level `review:` block
+  (`enabled: false`). Restore review per-run with `/mb work --review`, persist it
+  with `review.enabled: true`, or use a governed preset
+  (`--workflow governed-execution`). Migration: `docs/MIGRATION-v4-v5.md`.
+- **`mb-work-severity-gate.sh` PASSes as a no-op when no review is configured**
+  (previously `exit 2 "no 'review' step in stage_pipeline"`). The gate now reads
+  the `review:` block ▸ legacy `stage_pipeline[review]` ▸ active workflow
+  `loop.severity_gate`, on both the PyYAML and no-PyYAML paths.
+- **`full` is now a first-class preset, not an alias.** `workflow.aliases.full`
+  (→ `full-cycle`) is removed; `--workflow full` now resolves to the complete
+  8-stage chain `discuss → sdd → plan → implement → verify → review → judge → done`.
+  The old 6-stage interactive flow is still available as `--workflow full-cycle`.
+  A new `everything` alias points at `full`.
+
+### Added — composable `/mb work` pipeline
+
+- **3-layer stage composition** (precedence: launch flags > `pipeline.yaml` >
+  built-in default), resolved in `scripts/mb-workflow.sh` into one canonically
+  ordered stage list (`discuss → sdd → plan → implement → verify → review →
+  judge → done`; `fix` stays an internal loop mechanic).
+- **Per-stage launch flags** — `--review/--no-review`, `--judge/--no-judge`,
+  `--brainstorm/--no-brainstorm` (alias of `discuss`), `--sdd/--no-sdd`,
+  `--plan/--no-plan`; `--stages a,b,c` is an escape hatch that overrides the
+  preset and every flag. Launch flags win over `pipeline.yaml`; `pipeline.yaml`
+  per-stage `<stage>.enabled: true` adds a stage on top of the resolved preset.
+- **Deterministic merge** — the composed set is re-sorted into canonical order
+  only when composition changes it; an un-modified preset (or a legacy
+  `stage_pipeline`-only project) keeps its own order verbatim (back-compat).
+- **`full` preset** (`workflows.full`) spans the whole chain; per-stage opt-in
+  `enabled` blocks for `review`/`judge`/`discuss`/`sdd`/`plan` ship in the
+  default `pipeline.yaml` (all `false`).
+- **Fail-fast on invalid chains** — `scripts/mb-pipeline-validate.sh` gains a
+  `--stages <csv> [--input …]` mode and rejects `judge` without `review` and
+  `sdd`/`plan` with no upstream input; the composer (`mb-workflow.sh`) enforces
+  the judge⟹review rule before execution. `commands/work.md` documents the flags,
+  the three-layer precedence, and the `full` preset.
+- **`--review` is the single-reviewer path** (resolved via
+  `mb-reviewer-resolve.sh`, gated by `mb-work-severity-gate.sh`); the heavyweight
+  5-reviewer ensemble stays behind `--workflow governed-execution`.
+- SDD-specified via the skill's own engine (dogfooding):
+  `.memory-bank/specs/composable-work-pipeline/`. +29 tests (default-no-review
+  contract, gate no-op, composer matrix, `--stages` validation, doc contract).
+
+### Added — code-graph intelligence layer (opt-in: wiki, surprising connections, semantic search, suggested questions)
+
+- **Module decomposition** (behaviour-preserving): `scripts/mb-codegraph.py` 660 → 344 lines; extractors split into `memory_bank_skill/codegraph_{common,python,treesitter}.py`; shared `codegraph_loader.py` (one `graph.json` loader, both query/context cores delegate). Default output byte-identical.
+- **Git co-change edges** — `mb-codegraph.py --apply --cochange` adds deterministic `co_change` file edges from git history (`memory_bank_skill/codegraph_cochange.py`).
+- **Suggested questions** — `mb-codegraph.py --apply --questions` appends deterministic exploration questions to `god-nodes.md` (`codegraph_questions.py`), from god-nodes/bridges/communities/co-change. $0, no LLM.
+- **Semantic search** — `scripts/mb-semantic-search.py`: pluggable `Retriever` port, pure-Python **BM25** default ($0, zero deps), opt-in local embeddings (`sentence-transformers`, graceful fallback). Modules `semantic_search.py` + `semantic_embeddings.py`.
+- **LLM wiki + surprising connections** — `/mb wiki` (`commands/mb.md` § wiki + `scripts/mb-wiki.py`): per-community articles via **Haiku** subagents, cross-cutting `semantic` edges via **Sonnet** — host subagents, no API key. Deterministic prep in `wiki_evidence.py` + `wiki_store.py` (validated, idempotent edge merge). Agents `mb-wiki-author` / `mb-wiki-synthesizer`.
+- Optional dep `sentence_transformers` registered in `mb-deps-check.sh`. Default graph/search behaviour unchanged; all new capabilities opt-in with graceful degradation. Realizes backlog `I-063`.
+
+### Added — global-rules provisioning of the intelligence layer + session-memory packaging
+
+- **Installer source-of-truth now ships the intelligence layer.** `rules/RULES.md` (→ `~/.claude/RULES.md`), `rules/CLAUDE-GLOBAL.md` (→ `~/.claude/CLAUDE.md` block) and `references/claude-md-template.md` (→ project `CLAUDE.md`) gained the opt-in graph layer (suggested questions / co-change / semantic search / `/mb wiki`), the `co_change` + `semantic` edge kinds in the jq schema, the code-agent routing one-liner, and cross-chat **session-memory** (`/mb recall`) guidance. Previously these lived only in hand-edited `~/.claude/*` and were lost on every `install`/upgrade (Step 1 overwrites RULES.md). New contract test `test_rules_cover_intelligence_layer.py` keeps rules from drifting behind features.
+- **Session-memory subsystem now installs out of the box.** The four hooks (`mb-session-turn.sh`, `mb-session-end.sh`, `mb-session-start.sh`, `mb-recall.sh`) + `hooks/lib/{session-common,extract-tools-files}.sh` are now git-tracked; `install.sh` copies `hooks/lib/` beside the hooks; `settings/hooks.json` registers them (new **SessionStart** event + Stop/SessionEnd entries, all marker-tagged). Documented in `SKILL.md` `## Hooks`. New contract test `test_session_memory_packaging.py`. A fresh clone/install now gets cross-chat memory; previously all five files were untracked WIP and never registered.
+
+### Changed — compact `rules/CLAUDE-GLOBAL.md` (always-in-context block)
+
+- `rules/CLAUDE-GLOBAL.md` (injected into `~/.claude/CLAUDE.md` on every install) trimmed 145 → 81 lines: the always-on core is kept intact (Mandatory first-response guard, the `CRITICAL RULES` compaction block, Session Pipeline, Codebase Map + opt-in layers + `/mb recall`), while the verbose Coding/Testing/Reasoning/Planning bullets and the full `/mb` command table are condensed to pointers into `~/.claude/RULES.md` (read on demand). Cuts per-message context cost without losing any rule. All guard/contract tests stay green (`test_global_prompt_guard`, `test_rules_cover_intelligence_layer`, `test_runtime_contract`); the localizable `Language` line is preserved verbatim.
+
+### Changed — `rules/RULES.md` context economy (Code Graph + MB reference → on-demand)
+
+- `rules/RULES.md` trimmed **1073 → 801 lines (−25%)** without losing any rule. The full **Code Graph cookbook** (jq query library, `graph.json` schema incl. the `co_change` / `semantic` edge kinds, the opt-in intelligence layer, benchmark-grounded semantic-search routing, `/mb recall` session memory) moved to a new on-demand reference **`references/code-graph.md`** (installed via the `references/` dir copy; linked from `SKILL.md` `## References`). The **Subagents roster**, the full **`/mb` command reference**, and the **`.memory-bank/` structure tables** — verbatim duplicates of `SKILL.md` §Agents/§Tools, `/mb help` (`commands/mb.md`), and `references/structure.md` — were compressed to pointer sections (heading anchors preserved). Genuine rules kept inline: verify-before-done, no-delegate-plan/architecture/ML, checklist-update-immediately, `progress.md` append-only. The intelligence-layer contract test (`test_rules_cover_intelligence_layer.py`) re-points to `references/code-graph.md`; `CLAUDE-GLOBAL.md` pointers follow. All guard / doc-count / graph-rag / install contract tests stay green (pytest 1135, bats 669 / 0 fail). Plan: `.memory-bank/plans/2026-06-07_refactor_rules-context-economy.md`.
+
+### Changed — dev-agent strengthening via engineering-core composition
+
+- **New shared partial `agents/mb-engineering-core.md`** — role-neutral, stack-agnostic engineering
+  discipline lifted to a single source of truth: TDD (Red→Green→Refactor), Contract-First (+ contract-drift),
+  Clean Architecture direction table, SOLID/DRY/KISS/YAGNI thresholds, **production-wiring awareness**,
+  **evidence-before-claims Iron Law** (no "tests pass" without the command output), **escalation rules**
+  (3 attempts → STOP, no thrashing), **STATUS contract** (DONE / DONE_WITH_CONCERNS / BLOCKED /
+  NEEDS_CONTEXT, evidence-backed), and an **anti-rationalization table**. Marked `partial: true` —
+  excluded from the `~/.claude/agents/` registry by `install.sh`, delivered via the skill symlink.
+- **`/mb work` composition** — the implement-step now inlines `mb-engineering-core` ahead of the
+  resolved role agent (`prompt = core + "\n---\n" + role + body`). Previously the specialist files said
+  "Inherit all `mb-developer` principles" but the orchestrator inlined only the role file, so that
+  discipline never reached the subagent. The prepend fixes the broken inheritance.
+- **9 dev-role agents refactored to thin deltas** — `mb-developer` (down to a generic-fallback delta)
+  and the 8 specialists (`mb-backend`, `mb-frontend`, `mb-ios`, `mb-android`, `mb-devops`, `mb-qa`,
+  `mb-analyst`, `mb-architect`): removed the non-functional "Inherit…" reference, kept the domain
+  principles, replaced thin "same shape as mb-developer" outputs with explicit STATUS-led contracts
+  that require the test-run output.
+- **Controllers hardened** — `mb-reviewer` and `plan-verifier` gained an **adversarial default**
+  ("assume the diff is wrong until the rubric is demonstrably upheld; an invariant with no test that
+  forces the failure mode is unproven = a finding"); `plan-verifier` reports now include a
+  **"Verified positively"** section (positive proof, not just absence of findings). `mb-reviewer`'s
+  strict-JSON contract is unchanged (parser verified intact).
+- **Validation** — before/after behavioural test on the same trap task (`sonnet`, sandboxed): both
+  `mb-backend` and `mb-developer` went from claiming "tests pass" with **no command output** to leading
+  with `STATUS: DONE` and pasting the **actual pytest output**; rubric ~3.0 → ~4.6. See
+  `.memory-bank/reports/2026-06-02_subagent-baseline.md`.
+
+### Added — rule profiles & stack presets (Sprint 3)
+
+- **Configurable rule profiles** with immutable safety baseline. Profiles personalize Memory Bank rules across local / global / rules-only modes without weakening protected-files / no-placeholders / verification-before-completion / DRY/KISS/YAGNI guarantees.
+- `memory_bank_skill/rules_profile.py` — stdlib-only Python module with `parse_profile`, `parse_profile_safe`, `validate_profile`, `resolve_profile`. Frozen dataclasses `Profile`, `ResolvedProfile`, `ValidationError`. Built-in defaults plus layered precedence: `built-in → user → project → task` (task can only tighten, never weaken).
+- `scripts/mb-profile.sh` — shell CLI with subcommands `init / show / path / validate / set`. `--scope=user|project`, `--role`, `--stack`, `--architecture`, `--delivery`, `--strictness`, `--agent`, `--mb`. JSON-only persistence. User-scope profile path resolves through Sprint 1 `mb_agent_config_dir`; project-scope through `mb_resolve_path`.
+- **22 built-in presets** under `references/rules-presets/`:
+  - Roles: `backend`, `frontend`, `mobile`.
+  - Stacks: `go`, `python`, `javascript`, `typescript`, `java`, `generic`.
+  - Architectures: `clean`, `hexagonal`, `modular-monolith`, `microservices`, `ddd`, `fsd`, `mobile-udf`, `event-driven`.
+  - Delivery: `tdd`, `contract-first`, `api-first`, `sdd`, `legacy-safe`, `exploratory`.
+  - Each preset is declarative JSON (`rule_id`, `severity`, `guidance`, `see_also`) with unique global `rule_id` and ≤200-char guidance.
+- **Rules-check integration** — `scripts/mb-rules-check.sh` now reads the resolved profile, emits a `profile` block in JSON output (`role/stack/architecture/delivery/strictness/sources/prompt_summary`), tags violations with `rule_id` + `profile_source`, and honours `strictness`: `block` exits non-zero on CRITICAL, `warn` is backward-compatible, `advisory` never blocks.
+- **Stack-aware deterministic checks** (added to `mb-rules-check.sh`):
+  - `stack.go.context-propagation` (warn), `stack.go.goroutine-context` (advisory)
+  - `stack.python.type-hints` (advisory), `stack.python.no-business-mocks` (warn)
+  - `stack.typescript.no-any` (warn), `stack.javascript.strict-equality` (advisory)
+  - `stack.java.repository-interface` (advisory)
+  - `architecture.fsd.import-direction` (warn) fires only when architecture=fsd.
+- **`/mb profile` command surface** — new `commands/profile.md` (init/show/path/validate/set with copy-paste recipes), routed from `commands/mb.md` (now 25 commands). `/mb init` flow documents optional profile setup after storage choice.
+- **Docs** — new `docs/rule-profiles.md` (precedence model, schema, all 22 presets listed, 5 copy-paste recipes, immutable baseline table, JSON canonical / YAML docs-only). README adds "Rule profiles & stack presets" section; SKILL.md `## Tools` table gains `mb-profile.sh` and `## References` links `references/rules-profile.schema.md`.
+- **Contract coverage** — `tests/pytest/test_rules_profile_schema.py` (26 cases: parser/validator/resolver/precedence/4 KB cap), `tests/pytest/test_rules_presets.py` (12 cases: schema validation across all 22 presets + composition snapshots + immutable-baseline guards), `tests/bats/test_mb_profile.bats` (10 CLI cases), `tests/bats/test_rules_check_profile.bats` (8 integration cases incl. fsd/strictness).
+
+### Added — global-storage agent support (Sprint 2)
+
+- **Resolver-aware hooks** — `hooks/session-end-autosave.sh`, `hooks/mb-compact-reminder.sh`, `hooks/mb-session-start-context.sh` now honour an `MB_PATH` env override for global-storage mode. Tiering: `MB_PATH` env → local `<cwd>/.memory-bank/` → registry lookup via `scripts/_lib.sh` when `MB_AGENT` is set. `_lib.sh` is sourced in a subshell so its `set -euo pipefail` does not bleed into the hook.
+- **Git-hooks fallback** — `adapters/git-hooks-fallback.sh` post-commit body honours `MB_PATH` env so commits in global-storage projects append to the external bank.
+- **OpenCode plugin** — `adapters/opencode.sh` JS plugin reads `process.env.MB_PATH` instead of hard-coding `path.join(app.path.cwd, '.memory-bank')`.
+- **Cursor / Codex / Pi / Windsurf / Cline / Kilo adapters** — generated runtime hooks and inline scripts honour `MB_PATH`; AGENTS/rules snippets mention the resolver so users discover global mode.
+- **Codex global AGENTS.md** — `install.sh codex_agents_section` now embeds the full engineering baseline (TDD / SOLID / Clean Architecture / DRY / KISS / YAGNI / `[MEMORY BANK: ABSENT]`) via sed-merge from `rules/CLAUDE-GLOBAL.md`, matching the Pi pattern. Codex global installs get the same rules-only surface as Claude and Pi.
+- **Storage-modes docs** — `SKILL.md`, `README.md`, `docs/install.md`, `docs/cross-agent-setup.md` describe three modes:
+  - **Local** (default): `/mb init` or `/mb init --storage=local` — bank in the repo (team-shared).
+  - **Global** (opt-in personal storage): `/mb init --storage=global --agent=<agent>` — bank under `~/.<agent>/memory-bank/projects/<id>/.memory-bank/`, never committed.
+  - **Rules-only**: no `/mb init` — global engineering rules still apply; Memory Bank commands remain inactive.
+- **Contract & E2E coverage** — `tests/pytest/test_global_storage_contract.py` (11 cases) locks hook resolver-aware contract, OpenCode plugin contract, git-hooks fallback contract, and Codex global rules-only surface; `tests/e2e/test_global_storage.bats` (4 cases) covers cross-cutting story (context without local bank, uninstall preserves external bank, local mode default, install never creates a bank).
+- **Adapter uninstall safety** — adapter manifests never list the resolved Memory Bank path; uninstall removes only adapter-owned files. Verified by E2E "uninstall preserves external bank data" case.
+
+### Added — Cursor adapter remediation
+
+- `adapters/cursor.sh` registers the full 10-hook Cursor contract (matcher-aware `PreToolUse`/`PostToolUse`, project + global installs, idempotent append builder).
+- `hooks/mb-session-start-context.sh` — `sessionStart` hook injects capped `.memory-bank/` context (`MB_AUTOLOAD_CONTEXT=off` to disable).
+- `memory_bank_skill.__version__` reads canonical `VERSION` (wheel metadata fallback); `pyproject.toml` uses Hatch `version` source.
+- Cursor User Rules paste file uses `<!-- memory-bank:start vX.Y.Z -->` markers; TTY installs offer clipboard helper.
+
+### Added — Pi Code first-class global support
+
+- `memory-bank install` now registers Pi globally under `~/.pi/agent/`: managed `AGENTS.md`, `skills/memory-bank` alias, and prompt templates in `prompts/*.md` (`/mb`, `/start`, `/done`, `/plan`, etc.).
+- `memory-bank uninstall` removes Pi managed sections, prompts, and skill alias while preserving user content.
+- `adapters/pi.sh` now uses the native `~/.pi/agent/skills` path; `MB_PI_MODE=skill` no longer needs `MB_EXPERIMENTAL_PI_SKILL`, and default `agents-md` mode works outside git repos.
+- `memory-bank init` CLI help is client-neutral and reminds Pi users to run `/reload` after installing into an already-open session.
+
+### Fixed
+
+- `memory_bank_skill.__version__` reads the canonical `VERSION` at runtime, so the
+  tag == VERSION == `__version__` publish gate no longer drifts (the failure that
+  blocked the 4.0.0 PyPI publish). This is what unblocks the 5.0.0 release.
+- **CI green** — `.shellcheckrc` (`disable=SC1091`, since shellcheck won't follow
+  sourced libs without `-x`); `adapters/pi.sh` SRP split → `adapters/_lib_pi_global.sh`
+  (351 → 236 lines); ruff import-sort normalization across `hooks/`; `SKILL.md`
+  reviewer/tooling table refresh.
+- Reinstalling refreshes the managed Claude/Pi Memory Bank sections instead of repeatedly localizing every quoted critical rule as a language rule.
+- Installer symlink replacement now safely replaces symlink aliases without following or backing up external symlink targets, preserving the symlink-attack guard for file targets.
+- Existing Pi skill directory backups are stored under `~/.pi/agent/.memory-bank-backups/` instead of `~/.pi/agent/skills/`, avoiding duplicate `memory-bank` skill discovery conflicts.
+- `MB_PI_MODE=skill` leaves an existing global Pi skill symlink unchanged, preventing accidental overwrite of the canonical bundled `SKILL.md`.
+
+### Added — I-004 (auto-commit hook for `/mb done`)
+
+- `scripts/mb-auto-commit.sh` — opt-in (`MB_AUTO_COMMIT=1` env or `--force` flag) auto-commit of `.memory-bank/` changes after `/mb done`. 4 safety gates: bank clean → no-op; dirty source outside bank → skip with warning; rebase/merge/cherry-pick in progress → skip; detached HEAD → skip. Commit subject derives from the last `### ` heading in `progress.md` (truncated to 60 chars); fallback `chore(mb): session-end YYYY-MM-DD`. Never pushes — push remains an explicit user action.
+- Wired into `commands/done.md` step 7 (between `index.json` regen and final report).
+- 13 new tests (`test_mb_auto_commit.py` 10 + `test_i004_registration.py` 3). pytest 615 → 628.
+
+## [4.0.0] — 2026-04-25
+
+Major release: Skill v2 architectural refactor. Phases 3 + 4 + I-033 ship the executable engine: declarative `pipeline.yaml`, `/mb config` and `/mb work` commands, 9 role-agents + reviewer + verifier, severity-gated review-loop with budget tracking and protected-paths enforcement, 5 critical Claude Code hooks, prompt-trimming `--slim` mode, sprint context guard, checklist hard-cap enforcement, and installer auto-registration with `superpowers:requesting-code-review` skill detection. Breaking change: hook registration in `~/.claude/settings.json` now includes 5 new mb-prefixed hook commands; existing installs auto-merge via `merge-hooks.py`. **Tests 335 → 596+** across the v2 work.
+
+### Added — Phase 4 Sprint 3 (installer + release polish)
+
+- `scripts/mb-reviewer-resolve.sh` — pipeline-aware reviewer resolver. Reads `roles.reviewer.agent` (default `mb-reviewer`); when `roles.reviewer.override_if_skill_present` is configured AND the named skill directory exists in `MB_SKILLS_ROOT` (default `~/.claude/skills`), prints the override agent name (e.g. `superpowers:requesting-code-review`).
+- `settings/hooks.json` extended with 5 v2 hook entries (PreToolUse `Write|Edit` → protected-paths-guard + ears-pre-write; PreToolUse `Task` → context-slim-pre-agent + sprint-context-guard; PostToolUse `Write` → plan-sync-post-write). All carry the `# [memory-bank-skill]` marker so `merge-hooks.py` strips and re-appends them idempotently across re-installs.
+- `install.sh` step 6.5 — informational probe for `~/.claude/skills/superpowers/` directory; prints status of reviewer route resolution.
+- `commands/work.md` step 3c references `mb-reviewer-resolve.sh` so the orchestrator calls the resolver instead of hard-coding the reviewer agent name.
+
+### Added — I-033 hot-fix (checklist hard-cap enforcement)
+
+- `scripts/mb-checklist-prune.sh` — collapses fully-✅ sections linking to `plans/done/...` into one-liners. Pre-write `.checklist.md.bak.<ts>` backup. Hard-cap warn at >120 lines. Idempotent.
+- Wire-ins: `commands/done.md` step 4, `scripts/mb-plan-done.sh` chain, `scripts/mb-compact.sh --apply`. Closes the spec §3 / §13 rotating-artifact gap.
+- CI cap-test (`tests/pytest/test_checklist_cap.py`) enforces ≤120 lines on the repo's own `.memory-bank/checklist.md`.
+
+### Added — Phase 4 Sprint 2 (`--slim`/`--full` + sprint_context_guard)
+
+- `scripts/mb-context-slim.py` — prompt trimmer. Reads the full agent
+  prompt from stdin and emits a slim version containing the active
+  stage block (extracted between `<!-- mb-stage:N -->` markers in the
+  plan) + the DoD bullet list + the plan's `covers_requirements`
+  REQ list + (with `--diff`) the `git diff --staged` output. Falls
+  back to echoing the input prompt unchanged when the stage marker
+  is not present, so a slim mode never breaks the session.
+- `hooks/mb-context-slim-pre-agent.sh` upgraded from Sprint 1's
+  Wires the `/mb work --slim` flag from advisory to functional prompt
+  trimming, and ships a fifth hook that watches cumulative session
+  token spend. New artifacts:
+  - `scripts/mb-context-slim.py` — prompt trimmer. Reads the full agent
+    prompt from stdin and emits a slim version containing the active
+    stage block (extracted between `<!-- mb-stage:N -->` markers in the
+    plan) + the DoD bullet list + the plan's `covers_requirements`
+    REQ list + (with `--diff`) the `git diff --staged` output. Falls
+    back to echoing the input prompt unchanged when the stage marker
+    is not present, so a slim mode never breaks the session.
+  - `hooks/mb-context-slim-pre-agent.sh` upgraded from Sprint 1's
+    advisory-only form. When `MB_WORK_MODE=slim`, it now parses the
+    incoming Task `tool_input.prompt` for `Plan: <path.md>` and
+    `Stage: <N>` markers, dispatches the trimmer, and emits a JSON
+    document on stdout —
+    `{"hookSpecificOutput": {"hookEventName": "PreToolUse",
+    "additionalContext": "<slim>"}}` — so Claude Code can append the
+    trimmed view as orchestrator context without mutating
+    `tool_input`. Fail-open semantics throughout.
+  - `scripts/mb-session-spend.sh` — companion CLI mirroring
+    `mb-work-budget.sh`. Subcommands: `init [--soft N] [--hard N]`,
+    `add <chars>`, `status`, `check`, `clear`. State at
+    `<bank>/.session-spend.json`. Chars are converted to tokens via
+    the standard `chars / 4` estimate. Thresholds default to
+    `pipeline.yaml:sprint_context_guard.{soft_warn_tokens,
+    hard_stop_tokens}` (150 000 / 190 000).
+  - `hooks/mb-sprint-context-guard.sh` — fifth hook, `PreToolUse`
+    matched on `Task`. Accumulates the dispatched prompt + description
+    char-count per Task invocation, warns at the soft threshold
+    (stderr only, dispatch proceeds), and hard-blocks (exit 2) at the
+    hard threshold with a recommendation to run `/mb done` +
+    `/compact` + `/mb start`. Bank discovery via `MB_SESSION_BANK`
+    env or `${PWD}/.memory-bank`; lazy-inits the spend tracker on
+    first use.
+  - `references/hooks.md` — context-slim section rewritten to reflect
+    Sprint 2 behavior; new fifth-hook section for the
+    sprint-context-guard; combined `~/.claude/settings.json` snippet
+    now wires two hooks to the `Task` matcher.
+  - `commands/work.md` — `--slim` / `--full` flag entry now states
+    explicitly that the flag exports `MB_WORK_MODE` for the loop
+    subshell so the dispatched Task hooks observe it.
+  - 32 new pytest cases (9 `test_mb_context_slim.py` + 5
+    `test_hook_context_slim_upgrade.py` + 7 `test_mb_session_spend.py`
+    + 5 `test_hook_sprint_context_guard.py` + 6
+    `test_phase4_sprint2_registration.py`). Total: 552 → 584 passed.
+
+  Phase 4 Sprint 3 auto-registers these hooks during `install.sh`
+  and adds a `superpowers:requesting-code-review` skill detector that
+  flips the reviewer override declared in
+  `pipeline.yaml:roles.reviewer.override_if_skill_present`.
+
+- **Phase 4 Sprint 1: 4 critical hooks (spec §13).**
+  Runtime intercept points wired around Claude Code tool calls and
+  subagent dispatches. New artifacts:
+  - `hooks/mb-protected-paths-guard.sh` — `PreToolUse` (Write/Edit).
+    Reads JSON via `jq`, extracts `tool_input.file_path`, delegates
+    to `scripts/mb-work-protected-check.sh` for the actual glob match
+    against `pipeline.yaml:protected_paths`. Exit 2 (hard block) on
+    match unless `MB_ALLOW_PROTECTED=1` is set in the environment.
+    Fails open on missing dependencies.
+  - `hooks/mb-plan-sync-post-write.sh` — `PostToolUse` (Write). When
+    `tool_input.file_path` matches `*plans/*.md` or `*specs/*.md`,
+    triggers the deterministic chain
+    `mb-plan-sync.sh → mb-roadmap-sync.sh → mb-traceability-gen.sh`.
+    Each step is best-effort: missing scripts skipped, non-zero exits
+    logged but never blocking. Always exits 0.
+  - `hooks/mb-ears-pre-write.sh` — `PreToolUse` (Write). When the
+    target is `specs/*/requirements.md` or `context/*.md`, pipes
+    `tool_input.content` through `mb-ears-validate.sh -`. Exit 2 with
+    the validator's findings on the user's stderr if any REQ line
+    fails the EARS regex. Catches manual edits that bypass `/mb sdd`
+    or `/mb plan --sdd`.
+  - `hooks/mb-context-slim-pre-agent.sh` — `PreToolUse` (Task). When
+    `MB_WORK_MODE=slim` is set, emits an advisory note suggesting the
+    orchestrator trim the subagent prompt to the active stage + DoD
+    + covered REQs + `git diff --staged`. Sprint 2 will upgrade from
+    advisory to actual prompt rewrite via JSON `tool_input` output.
+  - `references/hooks.md` — installation guide. Per-hook section with
+    purpose, event type, matchers, behavior, and a copy-pasteable
+    `~/.claude/settings.json` snippet. Combined-snippet section for
+    one-shot setup. Operational notes (`jq` requirement, fail-open
+    semantics, missing-validator handling). Phase 4 follow-up
+    pointers.
+  - 35 new pytest cases (6 `test_hook_protected_paths.py` + 5
+    `test_hook_plan_sync_post_write.py` + 6
+    `test_hook_ears_pre_write.py` + 4 `test_hook_context_slim.py` +
+    14 `test_phase4_sprint1_registration.py`). Total: 517 → 552
+    passed.
+
+  Phase 4 Sprint 2 will wire the `/mb work --slim` flag to
+  `MB_WORK_MODE=slim`, upgrade `mb-context-slim-pre-agent.sh` to
+  actually rewrite the prompt, and ship a fifth hook —
+  `sprint_context_guard.sh` — that observes session token spend and
+  halts at `hard_stop_tokens`. Sprint 3 will auto-register all hooks
+  via `install.sh` and add the
+  `superpowers:requesting-code-review` skill detector for the
+  `pipeline.yaml:roles.reviewer.override_if_skill_present` swap.
+
+- **Phase 3 Sprint 3: review-loop ядро + autopilot hard stops.**
+  Closes Phase 3 — `/mb work` is now a full implement → review → fix
+  → verify loop. New artifacts:
+  - `scripts/mb-work-review-parse.sh` — strict JSON validator for
+    reviewer stdout. Schema: `{verdict ∈ {APPROVED,
+    CHANGES_REQUESTED}, counts: {blocker, major, minor},
+    issues: [{severity, category, file, line, message, fix?}]}`.
+    Cross-check: `CHANGES_REQUESTED` requires non-empty issues.
+    `--lenient` Markdown fallback for the "verdict: ..." form.
+  - `scripts/mb-work-severity-gate.sh` — reads
+    `stage_pipeline[step=review].severity_gate` from the effective
+    `pipeline.yaml` (override via `--gate <json>`); compares against
+    counts via `--counts <json>` or `--counts-stdin`. Exit 0 = PASS,
+    1 = FAIL with per-severity breach lines on stderr.
+  - `scripts/mb-work-budget.sh` — token budget tracker with
+    `init <total> [--warn-at PCT] [--stop-at PCT]`, `add <delta>`,
+    `status`, `check`, `clear`. State at `<bank>/.work-budget.json`.
+    `check` exit codes: 0 below warn, 1 at/above warn (default 80%),
+    2 at/above stop (default 100%).
+  - `scripts/mb-work-protected-check.sh` — matches files against
+    `pipeline.yaml:protected_paths` globs (incl. `**` segment-wildcard
+    via glob→regex translator). Exit 0 if none match, 1 with
+    `[protected] <file> matches <glob>` lines on stderr.
+  - `agents/mb-reviewer.md` — production-grade prompt. Per-category
+    review walk (logic / code_rules / security / scalability /
+    tests), severity decision tree (blocker / major / minor with
+    concrete examples), strict JSON output schema, fix-cycle
+    behavior on subsequent iterations, hard guardrails.
+  - `commands/work.md` — full per-stage workflow wired:
+    implement → protected-check → review (Task → mb-reviewer) →
+    parse → severity-gate → fix-cycle (cap at `max_cycles`,
+    `on_max_cycles ∈ {stop_for_human, continue_with_warning}`) →
+    verify (plan-verifier) → stage-done. Hard stops table for
+    `--auto`: max_cycles reached, verifier fail, protected-path
+    edit without `--allow-protected`, `--budget` exhausted,
+    `sprint_context_guard.hard_stop_tokens` reached.
+  - 43 new pytest cases (11 `test_mb_work_review_parse.py` + 9
+    `test_mb_work_severity_gate.py` + 8 `test_mb_work_budget.py` +
+    6 `test_mb_work_protected_check.py` + 9
+    `test_phase3_sprint3_registration.py`). Total: 474 → 517 passed.
+
+  Phase 4 will add the `context-slim-pre-agent.sh` /
+  `pre-agent-protected-paths.sh` runtime hooks (so the protected-path
+  block fires *before* a Write tool call lands), the `--slim` /
+  `--full` context strategy wiring, and installer detection of the
+  `superpowers:requesting-code-review` skill for the
+  `pipeline.yaml:roles.reviewer.override_if_skill_present` swap.
+
+- **Phase 3 Sprint 2: `/mb work` execution engine + 9 role-agents.**
+  MVP of the executable runtime over plan files. New artifacts:
+  - `scripts/mb-work-resolve.sh` — 5-form target resolver (spec §8.2):
+    existing path → substring search in `plans/` (excluding `done/`) →
+    topic name (`specs/<topic>/tasks.md`) → freeform (≥3 words, exit 3
+    + candidate list for orchestrator-driven match) → empty (active
+    plan from `<!-- mb-active-plans -->` block in `roadmap.md`).
+    `--mb` flag for explicit bank override; ambiguity exit 2 with
+    candidate list.
+  - `scripts/mb-work-range.sh` — range parser (`N` / `A-B` / `A-`)
+    with auto-detected level (plan target → stages from
+    `<!-- mb-stage:N -->` markers; phase target via `--phase` →
+    sprints from frontmatter `sprint:` field). Out-of-bounds rejected;
+    phase mode without sprint frontmatter rejected.
+  - `scripts/mb-work-plan.sh` — JSON Lines emitter, one object per
+    stage with `{plan, stage_no, heading, role, agent, status,
+    dod_lines}`. Role auto-detection by keyword match against heading
+    + body (ios / android / frontend / backend / devops / qa /
+    architect / analyst, with developer fallback). Agent resolved via
+    `pipeline.yaml:roles` (resolved through `mb-pipeline.sh path`).
+    `--dry-run` prepends a `## Execution Plan` summary header.
+  - 9 implementer agents under `agents/`: `mb-developer.md` (generic
+    fallback), `mb-backend.md`, `mb-frontend.md`, `mb-ios.md`,
+    `mb-android.md`, `mb-architect.md`, `mb-devops.md`, `mb-qa.md`,
+    `mb-analyst.md`. Each with role-specific discipline + self-review
+    checklist tied to the rubric.
+  - `agents/mb-reviewer.md` — Sprint 3 review-loop contract scaffold
+    (verdict format, severity gate behaviour, output schema).
+  - `commands/work.md` — slash-command spec for
+    `/mb work [target] [--range A-B] [--dry-run]` documenting target
+    resolution, range parsing, dispatch protocol via `Task` tool, and
+    Sprint 3 deferred items.
+  - `commands/mb.md` — router table row + `### work [target]` detail
+    section.
+  - 76 new pytest cases (9 `test_mb_work_resolve.py` + 9
+    `test_mb_work_range.py` + 10 `test_mb_work_plan.py` + 40
+    `test_mb_work_agents.py` + 8 `test_phase3_sprint2_registration.py`).
+    Total: 398 → 474 passed.
+
+  Sprint 3 will wire the review-loop, severity gates, fix-cycle on
+  `CHANGES_REQUESTED`, `plan-verifier` integration, `--auto` end-to-end
+  hard stops, `--budget` token tracking, `--slim`/`--full` context
+  strategy (with hooks from Phase 4), and the
+  `superpowers:requesting-code-review` skill override.
+
+- **Phase 3 Sprint 1: `/mb config` + `pipeline.yaml` declarative engine config.**
+  Lays the foundation for the Phase 3 Sprint 2 `/mb work` execution
+  engine. New artifacts:
+  - `references/pipeline.default.yaml` — bundled default that ships
+    with the skill. Implements the full spec §9 schema: `version`,
+    `roles` (11 entries: developer / backend / frontend / ios / android
+    / architect / devops / qa / analyst / reviewer / verifier),
+    `stage_pipeline` (implement → review → verify steps with
+    `severity_gate`, `max_cycles`, `on_max_cycles`, and 7 verifier
+    checks), `budget`, `protected_paths` (6 globs incl. `.env*`,
+    `ci/**`, `.github/workflows/**`), `sprint_context_guard`
+    (150k/190k), `review_rubric` (5 sections × 2-3 items), and `sdd`
+    (5 EARS-enforcement keys).
+  - `scripts/mb-pipeline-validate.sh` — structural schema validator
+    (Bash + python+PyYAML heredoc). Checks required keys, version,
+    role declarations, severity_gate ⊆ {blocker, major, minor},
+    max_cycles ≥ 1, `on_max_cycles ∈ {stop_for_human,
+    continue_with_warning}`, budget bounds [0, 100],
+    sprint_context_guard.hard > soft, non-empty rubric lists, sdd
+    boolean fields, `covers_requirements_policy ∈ {warn, block, off}`.
+  - `scripts/mb-pipeline.sh` — dispatcher with subcommands `init`
+    (copies bundled default into `<bank>/pipeline.yaml`, idempotent
+    with `--force` override), `show` (prints resolved config), `path`
+    (prints absolute path of effective file), `validate` (validates
+    resolved config or an explicit file). Resolution chain:
+    `<bank>/pipeline.yaml` → `references/pipeline.default.yaml`.
+  - `commands/config.md` — slash-command spec for `/mb config
+    <subcommand>`.
+  - `commands/mb.md` — router table row + `### config <subcommand>`
+    detail section.
+  - 63 new pytest cases (33 `test_pipeline_default_yaml.py` for
+    schema-shape sanity + 14 `test_mb_pipeline_validate.py` for
+    validator behaviour + 11 `test_mb_pipeline_cli.py` for dispatcher
+    semantics + 5 `test_phase3_sprint1_registration.py`). Total:
+    335 → 398 passed.
+
+- **Phase 2 Sprint 2: `/mb sdd` Kiro-style spec triple + SDD-lite in `/mb plan`.**
+  Closes the SDD vertical. New artifacts:
+  - `commands/sdd.md` — slash-command for `/mb sdd <topic> [--force]`,
+    creates `.memory-bank/specs/<topic>/{requirements,design,tasks}.md`.
+    If `<mb>/context/<topic>.md` exists, the
+    `## Functional Requirements (EARS)` block is copied verbatim into
+    `requirements.md` (REQ-IDs preserved). Refuses by default if the
+    spec already exists; `--force` overwrites.
+  - `commands/mb.md` router row + `### sdd <topic>` detail section.
+  - `scripts/mb-sdd.sh` — implementation. Bash + python heredoc for
+    EARS extraction (Python `\s` regex, not POSIX `[[:space:]]`).
+  - `scripts/mb-plan.sh` extended with `--context <path>` and `--sdd`
+    flags. Auto-detects `<mb>/context/<safe_topic>.md` when
+    `--context` is absent. `--sdd` is strict: refuses unless an
+    EARS-valid context exists. When a context is resolved, the plan
+    template gains a `## Linked context` section pointing at the
+    file.
+  - `references/templates.md` — "Spec Requirements", "Spec Design",
+    "Spec Tasks" templates aligned with the `mb-sdd.sh` output.
+  - 18 new pytest cases (7 `test_sdd.py` + 6 `test_plan_sdd_lite.py`
+    + 5 `test_phase2_sprint2_registration.py`). Total: 317 → 335
+    passed.
+
+- **Phase 2 Sprint 1: `/mb discuss` + EARS validator + `context/<topic>.md`.**
+  Input-side of the SDD traceability pipeline. New artifacts:
+  - `commands/discuss.md` — slash-command for the 5-phase requirements
+    interview (Purpose & Users / Functional EARS / Non-Functional /
+    Constraints / Edge Cases & Failure Modes). Validates draft REQs in
+    Phase 2 against the EARS regex; assigns IDs via
+    `mb-req-next-id.sh`; finalizes by running `mb-traceability-gen.sh`.
+  - `commands/mb.md` router table row + `### discuss <topic>` detail
+    section.
+  - `scripts/mb-ears-validate.sh` — validates `- **REQ-NNN** ...`
+    bullets against the 5 EARS patterns (Ubiquitous /
+    Event-driven / State-driven / Optional / Unwanted). Exit 0 = all
+    valid (or no REQs); exit 1 = violations on stderr; exit 2 = usage.
+    Reads from a file path or stdin (`-`).
+  - `scripts/mb-req-next-id.sh` — emits the next monotonic `REQ-NNN`
+    by scanning `specs/*/requirements.md`, `specs/*/design.md` and
+    `context/*.md`. No bank or no REQs → `REQ-001`. Gaps in the
+    existing sequence are NOT filled.
+  - `references/templates.md` — added the `context/<topic>.md`
+    template with Purpose & Users / Functional Requirements (EARS) /
+    Non-Functional / Constraints / Edge Cases / Out of Scope sections.
+  - 24 new pytest cases (13 EARS-validate + 6 req-next-id + 5
+    registration). Total: 293 → 317 passed.
+
+### Fixed
+
+- **Sprint 3 (I-028): multi-active plan checklist collision.** Two plans sharing
+  a stage heading (e.g. both with `## Task 1: Setup`) no longer collapse onto a
+  single checklist section. `mb-plan-sync.sh` now emits a
+  `<!-- mb-plan:<basename> -->` marker above each section it appends; idempotency
+  is keyed on the (marker, heading) pair. `mb-plan-done.sh` removes ONLY sections
+  preceded by the closing plan's marker. Sections without markers (pre-existing
+  legacy v3.1 layout) keep heading-only ownership through a conservative fallback
+  that activates only when no other plan claims the same heading via a marker.
+  pytest: 289 → 293 (4 new `test_plan_multi_active_collision.py` cases). bats:
+  479 → 515 passed — Sprint 1 missed a v2 rename in `test_plan_sync.bats`,
+  `test_idea_promote.bats`, `test_plan_sync_multi.bats`, `test_plan_done_multi.bats`
+  fixtures (`plan.md`/`STATUS.md`/`BACKLOG.md` → `roadmap.md`/`status.md`/`backlog.md`),
+  also fixed here. Legacy `test_plan_sync.bats::"existing stage with identical
+  title not duplicated"` rewritten to express the v3.2 contract (legacy unmarked
+  section preserved + new marker section appended).
+
+## [2.0.0-alpha.1] - 2026-04-22
+
+### Breaking
+
+- **Rename core files to lowercase:**
+  - `STATUS.md` → `status.md`
+  - `BACKLOG.md` → `backlog.md`
+  - `RESEARCH.md` → `research.md`
+  - `plan.md` → `roadmap.md` (with new roadmap format)
+- Migration via `scripts/mb-migrate-v2.sh` — see `docs/MIGRATION-v1-v2.md`.
+- 2-version backward-compat window; `/mb doctor` warns on unmigrated layouts.
+
+### Added
+
+- `scripts/mb-migrate-v2.sh` — idempotent v1 → v2 migrator (rename + content transform + reference fixup + timestamped backup)
+- `docs/MIGRATION-v1-v2.md` — user-facing migration guide
+- `tests/pytest/test_migrate_v2.py` — migration coverage (8 integration tests)
+- `tests/pytest/test_skill_naming_v2.py` — naming-guard test (asserts skill code uses v2 names)
+- `tests/pytest/fixtures/mb_v1_layout/` — v1 fixture for migration tests
+
+### Changed
+
+- All `commands/`, `references/`, `agents/`, `scripts/` (except migrators), `adapters/`, `memory_bank_skill/`, `templates/`, `rules/`, IDE-rule mirrors, top-level docs, and existing `tests/pytest/` updated to use v2 names.
+- `/mb start`, `/mb context`, `/mb doctor` autodetect v1 layout and prompt migration.
+- `/mb plan` output path convention unchanged — plan files still land in `.memory-bank/plans/`, roadmap entry now lives in `roadmap.md` (formerly `plan.md`).
+
+## [3.1.2] — 2026-04-21
+
+**Review findings hardening + installer boundary refactor.** Seven stages
+closing three classes of problems surfaced by the full-repo review and
+security audit: P0 security risks around path traversal and manifest
+poisoning, architectural debt in `install.sh` / adapter layer, and
+contract / maintainability drift in CLI, manifests, and shared helpers.
+All 3 High findings from `SECURITY_AUDIT_REPORT.md` closed; 601/601 bats
++ 246/246 pytest green.
+
+### Added
+
+- **Safe path helpers in `scripts/_lib.sh`** — canonicalization and subtree
+  validation reused by `install.sh` / `uninstall.sh` / adapters. Traversal
+  payloads in `.claude-workspace`, uninstall manifest paths, and `adapters/pi.sh`
+  `pi_skill_dir` all fail closed.
+- **`MB_ALLOW_METRICS_OVERRIDE=1` opt-in gate** for `.memory-bank/metrics.sh`
+  execution. Default blocks user-supplied overrides with an actionable hint.
+- **`-y` / `--non-interactive` flags** on `uninstall.sh` and the Python
+  `memory-bank uninstall` CLI. Both skip the prompt for CI/automation usage.
+- **`schema_version` + deterministic file/backup ordering** in the global
+  install manifest. Unblocks safe tooling that reasons over manifests.
+- **`memory_bank_skill/_io.py`** — shared atomic-write helper; replaces four
+  duplicated `_atomic_write()` implementations in Python scripts.
+- **`memory_bank_skill/_texttools.py`** — shared `strip_marked_section` /
+  `localize_language_rule` / etc.; replaces four near-identical Python
+  heredoc blocks in `uninstall.sh` with one shared call path.
+- **`adapters/_framework.sh` + `adapters/_contract.sh`** — shared adapter
+  entrypoints (install/uninstall), manifest writing, hook JSON merge, and
+  contract invariants. Sourced by all 7 adapters.
+- **`references/adapter-manifest-schema.md`** — documented manifest schema
+  (`schema_version`, `adapter`, `installed_at`, `files`, optional keys).
+- **Direct bats coverage** for `mb-note.sh`, `mb-plan.sh`, `_lib_agents_md.sh`
+  refcount/atomic-write behavior, 10 MB hook-log rotation boundary, and
+  `run_shell()` subprocess failure path — closes review-cited test gaps.
+- **`test_texttools.py`** pytest coverage for atomic write rollback,
+  marker-strip, and language-rule localization.
+
+### Changed
+
+- **`install.sh` no longer contains client-specific Cursor global helpers** —
+  hooks / AGENTS / user-rules logic moved into `adapters/cursor.sh`. The
+  universal installer is now orchestration only (argument parsing + shared
+  install + adapter invocation). `install.sh: 1` reference vs
+  `adapters/cursor.sh: 8` references post-refactor.
+- **`uninstall.sh` delegates adapter cleanup** instead of relying solely on
+  the global manifest. Adapter artifacts round-trip cleanly; user content
+  preserved.
+- **`adapters/_lib_agents_md.sh`** writes owner state atomically with an
+  explicit `jq` preflight that fails clearly when the binary is missing.
+- **All 7 adapters migrated to the shared framework** without changing their
+  public CLI. OpenCode/Codex/Pi shared `AGENTS.md` coexistence preserved.
+- **`mb-compact.sh` is narrowed back to archival decay.** Structural migration
+  of `checklist.md` done-sections and `plan.md` deferred/declined bullets now
+  lives in `mb-migrate-structure.sh`, which keeps compaction and migration on
+  separate boundaries again.
+- **`settings/merge-hooks.py`** now strips only Memory Bank-owned hook items
+  within mixed entries, preserving unrelated user commands in the same event.
+- **Pi's native `MB_PI_MODE=skill` path** is no longer part of the supported
+  default surface. Normal installs stay on `agents-md`; native-skill probing
+  requires the explicit `MB_EXPERIMENTAL_PI_SKILL=1` gate.
+
+### Fixed
+
+- Traversal payloads in `.claude-workspace`, uninstall manifest paths, and
+  `adapters/pi.sh` `pi_skill_dir` now reject external targets before any
+  destructive operation.
+- `install.sh::backup_if_exists()` refuses symlink targets that escape
+  managed directories; safe regular-file idempotency preserved.
+- `memory-bank install` fails early on unknown `--clients` values with a
+  clear error before `install.sh` runs.
+- `settings/merge-hooks.py` no longer drops mixed user/MB hook entries when
+  the first hook item happens to be MB-owned.
+
+### Docs
+
+- `README.md`, `docs/install.md`, `docs/release-process.md`, `SECURITY.md`
+  now document `memory-bank uninstall -y`, `MB_ALLOW_METRICS_OVERRIDE=1`
+  opt-in, and Pi's experimental native skill gate.
+
+## [3.2.0] — 2026-04-21 — absorbed into 4.0.0 (no separate release)
+
+**Subagent maturity release.** Six stages of targeted upgrades to the skill's
+subagent layer. Two new deterministic helpers (`scripts/mb-rules-check.sh`,
+`scripts/mb-test-run.sh`) unblock two new subagents; four existing subagents
+get first-class contracts, graph-aware analysis, and explicit conflict
+resolution. 102 new bats assertions; 177/177 passing including regression.
+
+### Added
+
+- **`agents/mb-rules-enforcer.md` + `scripts/mb-rules-check.sh`** — deterministic
+  SRP (>300 lines), Clean Architecture direction (`domain/` importing
+  `infrastructure/`), and TDD-delta (source without matching test) checks
+  that emit strict JSON. The wrapping subagent adds LLM-level ISP / DRY
+  judgment. Called by `/review`, `/commit`, `/pr`, and plan-verifier Step
+  3.6. JSON-first design enables machine composition; CRITICAL/WARNING/INFO
+  vocabulary is closed and documented.
+- **`agents/mb-test-runner.md` + `scripts/mb-test-run.sh`** — per-stack
+  structured test executor (python + go in v1). Returns
+  `{stack, tests_pass, tests_total, tests_failed, failures[], coverage,
+  duration_ms}`. Never collapses `null` to `false` — absence of a runner
+  yields explicit NOT-RUN rather than silent pass. Called by `/test` and
+  plan-verifier Step 3.5; replaces direct `mb-metrics.sh --run` to avoid
+  double execution.
+- **`scripts/mb-drift.sh` check #9 — `check_research_experiments`** — scans
+  `RESEARCH.md` for H-NNN rows whose status is ✅ Confirmed or ❌ Refuted and
+  verifies the matching `experiments/EXP-NNN.md` exists. Missing file →
+  `drift_check_research_experiments=warn` + per-H stderr line. Zero LLM
+  tokens for detection.
+- **`**Baseline commit:** <hash>` header in every new plan** (`scripts/mb-plan.sh`
+  writes `git rev-parse HEAD` at plan creation). `plan-verifier` uses it as
+  the diff base via `git diff <baseline>...HEAD`, replacing `HEAD~N` guessing.
+  Fallback chain: ctime lookup → `HEAD~10` with WARNING. Outside a git repo →
+  `unknown`.
+- **`MB_DOCTOR_REQUIRE_CLEAN_TREE` env guard** — when set to `1`, mb-doctor
+  refuses to auto-fix on a dirty working tree and surfaces an actionable
+  `git stash` hint. Default OFF; intended for CI / shared environments.
+- **`MB_GRAPH_STALE_HOURS` env override** — default 24h. Controls how fresh
+  `graph.json` must be before `mb-codebase-mapper` consumes it; stale →
+  graceful grep fallback.
+- **`### action: done` first-class section in `agents/mb-manager.md`** —
+  normative 6-step flow (actualize → note → plan closure → session-lock →
+  index regen → report) + explicit 5-rule "Actualize conflict resolution"
+  subsection. Supersedes the prior "combined flow of actualize + note"
+  wording in `commands/done.md`.
+
+### Changed
+
+- **`agents/plan-verifier.md` Step 3.5** now delegates to `mb-test-runner`
+  instead of calling `mb-metrics.sh --run` directly. Eliminates double test
+  execution in the verify → done flow.
+- **`agents/plan-verifier.md` Step 3.6** enforces RULES.md with project-first
+  precedence (`.memory-bank/RULES.md` → `~/.claude/RULES.md`).
+- **`agents/mb-codebase-mapper.md`** now prefers `graph.json` / `god-nodes.md`
+  over ad-hoc grep when deriving CONVENTIONS (naming-pattern counts from
+  node names) and CONCERNS (god-nodes cited by name + degree). Dogfood on
+  this repo: 92% snake_case (53/57 function names), top-5 god-nodes ready to
+  cite. Auto-stamps `Generated: $(date -u +%FT%TZ)` in template headers.
+- **`commands/review.md`** and **`commands/test.md`** replace inline principle
+  / stack-runner enumerations with single `Agent()` delegation blocks.
+- **`scripts/mb-rules-check.sh` `has_matching_test()`** strips a leading
+  `mb-` prefix before basename matching AND adds a content-grep fallback —
+  tests named after the agent/feature (`test_rules_enforcer_*.bats`) now
+  correctly satisfy tdd/delta for their wrapping scripts (`mb-rules-check.sh`).
+
+### Fixed
+
+- `plan-verifier` no longer uses `HEAD~N` as the diff base — guess-driven
+  audit scope is replaced with the recorded `**Baseline commit:**` from the
+  plan header.
+- `mb-doctor` no longer edits files silently under a dirty tree when the
+  guard env is set — the previous implicit trust in the working state is
+  replaced with an observable decision point.
+- `mb-rules-check.sh` `tdd/delta` false positives on scripts whose tests are
+  named after the conceptual feature (not the script) are resolved via the
+  content-grep fallback pass.
+
+## [3.1.1] — 2026-04-21
+
+**i18n infrastructure release.** Memory Bank now ships locale-aware
+`.memory-bank/` template bundles. Existing English users are unaffected —
+this is a pure capability addition.
+
+### Added
+
+- **Locale template bundles under `templates/locales/{en,ru,es,zh}/.memory-bank/`.**
+  `en` and `ru` ship as full translations; `es` and `zh` ship as scaffolds
+  (EN copy + `TODO(i18n-<lang>)` banner) that the community can complete via
+  PR — see [`docs/i18n.md`](i18n.md).
+- **New `scripts/mb-config.sh`** — 4-tier locale resolver:
+  1. `MB_LANG` env var
+  2. `$MB_ROOT/.memory-bank/.mb-config` (`lang=XX`)
+  3. Heuristic auto-detect from existing bank content (Cyrillic → `ru`) with
+     write-back for determinism
+  4. Default `en`
+- **New `scripts/mb-init-bank.sh`** — deterministic, locale-aware bank
+  scaffolder. Respects `--lang=XX`, `MB_LANG`, existing `.mb-config`; never
+  overwrites user-authored files.
+- **`memory-bank init --lang=XX`** CLI flag and **`/mb init --lang=XX`**
+  command form.
+- **`install.sh --language {en|ru|es|zh}`** — expanded whitelist (was `en|ru`).
+- **`docs/i18n.md`** — contributor guide for adding a new locale.
+
+### Contract
+
+- Canonical English anchors (`<!-- mb-active-plans -->`,
+  `<!-- mb-recent-done -->`, `## Ideas`, `## ADR`) remain English in **every**
+  locale bundle — every `mb-*` script depends on them.
+- `commands/mb.md`, script CLI output, and the main English docs stay English.
+
+### Coverage
+
+- 216 pytest + 14 skipped (pytest suite)
+- 14/14 `mb-config` bats
+- 9/9 `mb-init-bank` bats
+- 28/28 install/uninstall e2e bats
+
+## [3.1.0] — 2026-04-21
+
+**Major refactor of core Memory Bank files** (`STATUS.md`, `plan.md`, `checklist.md`, `BACKLOG.md`) with stricter formats, multi-active plan support, monotonic idea IDs, and a dedicated `mb-compact.sh` extension that prunes stale `checklist.md` / `plan.md` entries.
+
+### Breaking-ish (auto-migrated)
+
+- **`plan.md` / `STATUS.md` now carry multi-active plan blocks.** The singular `<!-- mb-active-plan -->` / `<!-- /mb-active-plan -->` markers are upgraded to plural `<!-- mb-active-plans -->` / `<!-- /mb-active-plans -->` and the heading `## Active plan` → `## Active plans`. `STATUS.md` gains a new `<!-- mb-recent-done -->` / `<!-- /mb-recent-done -->` block (default-trimmed to 10 entries via `MB_RECENT_DONE_LIMIT`).
+- **`BACKLOG.md` now has a fixed skeleton — `## Ideas` (with `### I-NNN — title [PRIO, STATUS, DATE]` entries) + `## ADR` (with `### ADR-NNN — title [date]` entries).** IDs are monotonic project-wide.
+- **Migration is automatic.** Run `bash scripts/mb-migrate-structure.sh --apply .memory-bank` (or `/mb migrate-structure --apply`). The script creates a timestamped `.pre-migrate/YYYYMMDD_HHMMSS/` backup before touching anything, upgrades marker names, and ensures the skeleton is present. Rerunning is a no-op (idempotent). See `docs/MIGRATION-v3-v3.1.md`.
+
+### Added
+
+- **`scripts/mb-idea.sh`** — capture a new idea in `BACKLOG.md ## Ideas` with an auto-assigned `I-NNN` ID (monotonic, project-wide). Usage: `bash scripts/mb-idea.sh "title" [HIGH|MED|LOW]`. Wired as `/mb idea`.
+- **`scripts/mb-idea-promote.sh`** — promote an existing idea (`I-NNN`) to a plan file. Validates idea is in `NEW`/`TRIAGED` state, calls `mb-plan.sh <type>`, flips idea status to `PLANNED`, adds `**Plan:**` cross-link, and runs `mb-plan-sync.sh` to register the new plan in `plan.md` + `STATUS.md`. Wired as `/mb idea-promote`.
+- **`scripts/mb-adr.sh`** — capture a new ADR in `BACKLOG.md ## ADR` with an auto-assigned `ADR-NNN` ID and a standard skeleton (Context / Options / Decision / Rationale / Consequences). Wired as `/mb adr`.
+- **`scripts/mb-migrate-structure.sh`** — one-shot v3.0 → v3.1 structural migration tool (dry-run by default; `--apply` to execute). Wired as `/mb migrate-structure`.
+
+### Changed
+
+- **`scripts/mb-plan-sync.sh` is now multi-active-plan aware.** Upserts the same plan into `<!-- mb-active-plans -->` blocks in *both* `plan.md` and `STATUS.md` (deduped by basename). Auto-upgrades legacy singular markers on first run. Stage sections are appended to `checklist.md` with exact-heading matching so two active plans never collide on identical stage titles.
+- **`scripts/mb-plan-done.sh` is fully redesigned.** Instead of just ticking checkboxes, it now (1) removes the plan's stage sections from `checklist.md` entirely, (2) removes its entry from the active-plans blocks in `plan.md` + `STATUS.md`, (3) prepends the completed plan to `<!-- mb-recent-done -->` in `STATUS.md` (trimmed to `MB_RECENT_DONE_LIMIT`, default 10), (4) flips any linked `BACKLOG.md` idea from `PLANNED` → `DONE` and appends an `**Outcome:**` placeholder, and (5) moves the plan file to `plans/done/`.
+- **`scripts/mb-compact.sh` extended** with `checklist.md` + `plan.md` compaction:
+  - `CHECKLIST_AGE_DAYS` (default 14) — fully-done checklist sections that link to a `plans/done/` file older than this threshold are removed on `--apply`.
+  - Bullets inside legacy localized `plan.md` `Deferred` / `Declined` sections are migrated into `BACKLOG.md` as new ideas with status `DEFERRED` (or `DECLINED`) and removed from `plan.md`. Section headings are preserved empty for future use.
+- **`templates/.memory-bank/`** — `STATUS.md`, `plan.md`, `checklist.md`, `BACKLOG.md` redesigned around the new marker blocks and ID schemes. Header comments explain each file's role, size recommendations, and script contracts (deliberately avoid mentioning literal marker names to prevent regex false-positives in format-invariant tests).
+- **`references/structure.md`** — rewritten as the v3.1 specification. Defines format invariants, lifecycle (NEW → TRIAGED → PLANNED → DONE / DEFERRED / DECLINED), ID schemes (`I-NNN`, `ADR-NNN`, `H-NNN`, `EXP-NNN`), control env vars (`MB_RECENT_DONE_LIMIT`, `MB_COMPACT_CHECKLIST_DAYS`, `MB_COMPACT_AGE_DAYS`), and per-file / per-directory contracts.
+- **`commands/mb.md`** — new subcommands `/mb idea`, `/mb idea-promote`, `/mb adr`, `/mb migrate-structure` documented in the routing table and body sections.
+
+### Fixed
+
+- **Python regex deprecation warnings** — replaced POSIX `[[:space:]]*` with `\s*` in the Python snippets embedded in `scripts/mb-compact.sh` and `scripts/mb-migrate-structure.sh`.
+- **BSD/GNU `awk` portability** — `mb-idea.sh` ID generation now uses `grep -Eo | awk -F- | sort -n | tail -1 || true` instead of GNU-only `awk match(..., arr)`. `mb-adr.sh` multiline skeleton is written to a temp file and pulled into `awk` via `getline` to avoid `awk: newline in string` on macOS.
+- **`mb-idea-promote.sh` Unicode-aware parsing** — title/status extraction switched from `sed -E` / `tr -d` (which failed on multibyte `—`) to Python `re.match`.
+
+### Tests (TDD RED→GREEN)
+
+- **8 new BATS suites, 1 new pytest suite:**
+  - `test_plan_sync_multi.bats` (8 tests) — multi-active plan upsert, idempotency, legacy-marker upgrade.
+  - `test_plan_done_multi.bats` (7 tests) — completion flow: recent-done prepend/trim, checklist section removal, BACKLOG status flip.
+  - `test_idea.bats` (7 tests) — monotonic `I-NNN` IDs, priority handling, idempotency, invalid-input validation.
+  - `test_idea_promote.bats` (6 tests) — plan creation from idea, `NEW → PLANNED` flip, plan cross-link, active-plans registration.
+  - `test_adr.bats` (6 tests) — monotonic `ADR-NNN`, skeleton sections, date format.
+  - `test_compact_checklist.bats` (6 tests) — fully-done section removal linked to old `plans/done/`, env-var override.
+  - `test_compact_plan_md.bats` (7 tests) — localized `Deferred` → `DEFERRED`, localized `Declined` → `DECLINED`, English alias support.
+  - `test_migrate_structure.bats` (8 tests) — dry-run / apply modes, backup creation, marker upgrade, skeleton injection, idempotency.
+  - `test_templates_format.py` — format invariants for all four core templates.
+- **`test_plan_sync.bats` (legacy)** updated to the v3.1 contract (single-plan edge cases + error handling); multi-plan behaviour lives in the new suites.
+- **`tests/e2e/test_install_uninstall.bats`** grew one assertion verifying the new v3.1 scripts (`mb-idea.sh`, `mb-idea-promote.sh`, `mb-adr.sh`, `mb-migrate-structure.sh`, `mb-compact.sh`) are installed and executable.
+
+### Migration guide
+
+See `docs/MIGRATION-v3-v3.1.md` for the step-by-step upgrade. TL;DR:
+
+```bash
+# 1. Install the new version
+pipx upgrade memory-bank-skill       # or brew upgrade memory-bank
+# 2. Run the automatic structural migration
+bash ~/.claude/skills/memory-bank/scripts/mb-migrate-structure.sh --apply .memory-bank
+# 3. Verify backup was created
+ls .memory-bank/.pre-migrate/
+```
+
+## [3.0.1] — 2026-04-21
+
+Patch release consolidating the command audit, docs-surface refactor,
+CI stabilization, and the migration to PyPI Trusted Publishing.
+
+### CI / release pipeline
+
+- **PyPI publishing switched to Trusted Publisher (OIDC).** `publish.yml` no longer uses the long-lived `PYPI_API_TOKEN` secret. The `publish-pypi` job now declares `environment: pypi` + `permissions: id-token: write`, and `pypa/gh-action-pypi-publish` auto-activates OIDC. Matches the PyPI-recommended auth path (`docs.pypi.org/trusted-publishers/`). The `pypi` GitHub environment is managed in repo Settings → Environments; it shows up as a green Deployments card on every successful release.
+- **`test.yml` installs `.[codegraph]` extras** so `tree-sitter` language bindings are present in CI. Without them `tests/pytest/test_codegraph_ts.py` silently skipped 14 scenarios, dragging coverage of `scripts/mb-codegraph.py` under the 85% threshold. Now coverage reports 92 %+ consistently.
+- **`shellcheck` SC2015 resolved in two scripts.** `scripts/mb-deps-check.sh` helpers (`say` / `say_err`) rewritten from the `A && B || C` pattern to explicit `if [ … ]; then …; fi`. `hooks/mb-compact-reminder.sh` subshell switched from `cmd || true` to `cmd; true` inside `$(…)`. Same behaviour, no more SC2015 warnings on lint CI.
+
+### Badges / docs surface
+
+- **Landing page badges (`site/index.html`) + README badges** aligned. 8 green shields total: tests CI, PyPI version, GitHub release, Python versions, Homebrew tap, monthly downloads, last commit, MIT license. All URLs carry a `v=300` cache-buster so `camo.githubusercontent.com` pulls the current shields.io SVG (without it, GitHub's camo proxy held onto the `v3.0.0rc1` image after the stable release).
+- **New `Docs` section on the landing page** with curated links to the install guide, `/mb` command reference, `CHANGELOG`, release process, and v1→v2 migration notes. Listed in the topnav.
+- **`CONTRIBUTING.md` + `SECURITY.md`** added to satisfy GitHub Community Standards (green Community tab, Security Policy link on the repo header). `CONTRIBUTING` documents the TDD workflow, dev-dependency setup (`.[codegraph,dev]`), Conventional Commits, and the four local lint/test gates. `SECURITY` documents supported versions (3.0.x active, 2.x critical-only until 2026-10, <2 EOL), the private reporting channel (GitHub Security Advisories), response SLAs, and the coordinated-disclosure policy.
+
+### Commands refactor (audit-driven, 2026-04-21)
+
+- **Canonical command template** — `references/command-template.md` documents the required YAML frontmatter shape (`description`, `allowed-tools`, `argument-hint`), body structure, memory-bank integration snippets, alias pattern, and a pre-commit validation checklist. Linked from `SKILL.md`.
+- **Frontmatter fixed in 10 command files** — `adr.md`, `catchup.md`, `changelog.md`, `commit.md`, `contract.md`, `done.md`, `plan.md`, `refactor.md`, `start.md`, `test.md` previously opened with `# ~/.claude/commands/<name>.md` + `---` + `## description:` as a Markdown heading. This killed YAML parsing so host UIs (Claude Code, OpenCode, Cursor) never loaded descriptions or tool whitelists. All 10 now open with a valid `^---$` fence on line 1 and expose exactly 2 fences. `pr.md` had the same comment-before-fence issue — also fixed. `doc.md` frontmatter normalized (plugin-specific `agent:` / `context:` keys preserved inside the fence with an explanatory HTML comment).
+- **Alias resolution — `/plan`, `/start`, `/done` are now the primary commands.** The sophisticated logic (mb-plan.sh scaffold + mb-plan-sync.sh, mb-context.sh + codebase-bootstrap suggestion, MB Manager actualize+note + `.session-lock` touch) lives in `commands/plan.md`, `commands/start.md`, `commands/done.md`. `/mb plan|start|done` are explicit aliases that delegate to the primary commands. `commands/mb.md` sections shrink to pointer-paragraphs and keep the router entries working so `/mb plan feature <topic>` still reaches the same scripts.
+- **`/adr` writes to `BACKLOG.md`** — previously wrote ADR files to `plans/`, contradicting `RULES.md` + MB Manager which both say ADRs belong in `BACKLOG.md ## Architectural decisions (ADR)`. New flow: find max existing `ADR-NNN`, monotonic +1, append as one-line entry per `references/templates.md`. Optional cross-link note. Empty-args guard.
+- **Stack-generic refactor via `mb-metrics.sh`** — `security-review.md`, `db-migration.md`, `observability.md`, `api-contract.md`, `test.md` now all call `mb-metrics.sh` first and have an explicit `stack=unknown` fallback that asks the user instead of assuming.
+  - `/security-review` now covers Go / Python / Node / Rust / Java / Kotlin / Ruby / .NET (8 stacks) and recommends `trufflehog` / `gitleaks` over the naive grep for secret scanning.
+  - `/db-migration` now detects 8+ tools: golang-migrate, goose, Atlas, Alembic, Prisma, Sequelize, Knex, Diesel, SQLx, Flyway, Liquibase, Entity Framework Core, plain SQL. Non-listed → ask the user.
+  - `/observability` now covers Go / Python / Node / Rust / Java / Kotlin / .NET with specific library recommendations per stack.
+  - `/api-contract` detects Go (gin/echo/chi/net-http) + Node (Express/Fastify/Nest) + Python (FastAPI/Flask/Django) + Spring + ASP.NET + Rust (Axum/Actix/Rocket) + Rails. Recommends Schemathesis + Pact for contract tests.
+  - `/test` now uses `$test_cmd` from metrics instead of hardcoding `go test / pytest / jest`; keeps per-runner `-filter` hints as examples.
+- **Safety gates — destructive operations no longer silent:**
+  - `/commit` runs `mb-drift.sh` + `git diff --check` pre-flight, scans the staged diff for debug residue / secrets / TODOs, and requires explicit `y/N` confirmation (default = No) before `git commit`.
+  - `/pr` refuses to create a PR from `main` / `master`, warns if 0 commits ahead of the integration branch, surfaces CI workflows via `gh workflow list`, and requires `y/N` preview confirmation before `gh pr create`.
+  - `/db-migration` destructive SQL ops (`DROP TABLE`, `DROP COLUMN`, `TRUNCATE`, `DELETE FROM` without `WHERE`) now require explicit `y/N` confirmation *before the file is written*, not just before it is applied.
+- **Empty-`$ARGUMENTS` guards** — `/refactor`, `/contract`, `/adr`, `/api-contract`, `/db-migration` now all stop and ask the user for the missing topic instead of running with an empty target (Fail-Fast per `RULES.md`).
+- **`codebase/` integration in context-reading commands** — `/catchup` now reads the `codebase/*.md` summaries alongside plan / checklist / notes. `/review` reads `codebase/ARCHITECTURE.md` + `codebase/CONCERNS.md` for its architectural analysis section. `/pr` adds a `## Codebase context` section to the PR body when `codebase/` is populated.
+- **Verification** — `bash scripts/mb-drift.sh .` → `drift_warnings=0` on all 8 checks (path, staleness, script_coverage, dependency, cross_file, index_sync, command, frontmatter). Frontmatter loop check: 17 / 17 command files (minus `mb.md` which has a custom router structure) start with `^---$` and expose exactly 2 `---` fences.
+
+Plan: `.memory-bank/plans/done/2026-04-21_refactor_commands-audit-fixes.md` (10 stages, all PASS).
+
+### Docs
+
+- **Surface `.memory-bank/codebase/` in all structural / workflow documentation.** The directory (populated by `mb-codebase-mapper` via `/mb map` / `/mb graph`, consumed by `scripts/mb-context.sh`) used to be mentioned only in `SKILL.md`, `commands/mb.md`, and the mapper agent prompt — it was missing from the two files that ship to user globals (`rules/CLAUDE-GLOBAL.md` → `~/.claude/CLAUDE.md` managed block, `rules/RULES.md` → `~/.claude/RULES.md`), the structure/workflow/templates references, and the per-project `CLAUDE.md` template used by `/mb init --full`. As a result, fresh agents did not know the folder existed, what lives in it, or when to regenerate it.
+  - `references/structure.md` — new `### codebase/ — Codebase map` subsection with artifact table (6 files), producer (`mb-codebase-mapper` subagent, sonnet), consumer (`mb-context.sh`), and regeneration triggers.
+  - `references/workflow.md` — session-start bootstrap rule (suggest `/mb map` when `codebase/` is empty, never auto-invoke) + `codebase/` rows in the "when to update" and "when to create" decision tables.
+  - `references/templates.md` — tree comments on the `/mb init` structure so every subdirectory (including `codebase/`) has an inline description of who fills it.
+  - `references/claude-md-template.md` — new `codebase/` row in the `.memory-bank/` table so the generated per-project `CLAUDE.md` documents the folder.
+  - `rules/CLAUDE-GLOBAL.md` + `rules/RULES.md` — identical new `codebase/` row in the "Detailed records" table (byte-identical wording across both files) + bootstrap sentence / step in the session-start workflow.
+  - `commands/mb.md` `### init` — new optional **Step 1.5** in `--full` mode: asks the user whether to seed `codebase/` by running `mb-codebase-mapper` now; default answer is skip. Step 6 Summary now surfaces `/mb map` as a follow-up next step.
+- **No behavioural change** — `mb-codebase-mapper` is still never auto-invoked; `/mb init --minimal` is unaffected; all existing commands keep their exact current contracts. Running `bash scripts/mb-drift.sh .` still reports `drift_warnings=0`.
+
+---
+
+## [3.0.0] — 2026-04-20
+
+First stable 3.x release. Combines the work from the `3.0.0-rc1` / `rc2` / `rc3`
+candidates: native cross-agent install (Claude Code, Codex, Cursor, OpenCode),
+five-artifact global parity for Cursor, byte-level idempotent `install.sh`,
+and the `memory-bank install` / `memory-bank uninstall` / `memory-bank doctor`
+CLI. Install via `pipx install memory-bank-skill` or `brew install fockus/tap/memory-bank`.
+
+### Fixed (idempotency, promoted from `3.0.0-rc3`)
+
+- **`install.sh` is now byte-level idempotent** — repeat runs on an up-to-date tree create **zero** `.pre-mb-backup.*` files.
+  - Root cause: `backup_if_exists()` did an unconditional `mv` on any existing target, and `install_file()` called it without comparing `src` / `dst` content. For localized files (`RULES.md`, Cursor paste-file) a raw `cmp -s src dst` never matched because `dst` had been language-substituted.
+  - Observed damage before the fix: 14 historic installs → 1628 accumulated `.pre-mb-backup.*` files; a single "clean" reinstall generated 48 backups, 37 of them byte-identical to the active file.
+- **New helpers** in `install.sh`:
+  - `install_file()` short-circuits via `cmp -s "$src" "$dst"` when content is already identical.
+  - `backup_if_exists()` accepts an optional 2nd arg `expected_content_path` and returns `2` (skip marker) on content match.
+  - `install_file_localized()` — composes expected post-install content in a temp file (`cp src` + `localize_path_inplace`), compares to `dst` via `cmp -s`, skips backup+write on match. Used for `RULES.md` in Step 1.
+  - `localize_path_inplace()` — substitution helper without the existence shortcut.
+  - `install_cursor_user_rules_paste()` rewritten with a compose-to-tmp + `cmp -s` skip instead of unconditional overwrite.
+- **Manifest `.backups[]`** is now filtered via `os.path.exists` — stale refs from user-cleaned `.pre-mb-backup.*` files are dropped instead of accumulating across installs.
+- **`tests/e2e/test_install_idempotent.bats`** — 5 bats scenarios: zero backups on repeat install, exactly-one backup per real content diff, zero backups after external delete, language-swap backs up only localize-target files, manifest lists only existing backup paths.
+
+**Result**: repeat install on an up-to-date tree → 0 backups. Language swap (`--language en` → `--language ru`) → exactly 2 backups (`RULES.md` + `memory-bank-user-rules.md`) and nothing else.
+
+### Added
+
+- **Cursor global parity — five artifacts under `~/.cursor/` are now installed unconditionally** (without `--clients cursor`):
+  - `~/.cursor/skills/memory-bank/` — symlink to the canonical skill bundle (Cursor auto-discovers personal skills).
+  - `~/.cursor/hooks.json` + `~/.cursor/hooks/*.sh` — three global hooks (`sessionEnd` / `preCompact` / `beforeShellExecution`); each entry is marked `_mb_owned: true`, while user hooks on the same events are preserved.
+  - `~/.cursor/commands/*.md` — user-level slash commands mirroring the skill `commands/` directory.
+  - `~/.cursor/AGENTS.md` — managed section with unique `memory-bank-cursor:start/end` markers, preserving user content above and below.
+  - `~/.cursor/memory-bank-user-rules.md` — paste-ready bundle for **Settings → Rules → User Rules** (Cursor has no file API for global User Rules; this is a one-time manual step per machine). The post-install hint prints `pbcopy`/`xclip` commands.
+- **`install.sh` helpers**: `cursor_agents_section()`, `install_cursor_global_agents()`, `install_cursor_user_rules_paste()`, `install_cursor_global_hooks()` (with jq-based `hooks.json` merge similar to Codex). `ensure_skill_aliases()` now creates the `~/.cursor/skills/memory-bank` alias.
+- **`uninstall.sh` Cursor branches**: preserve `~/.cursor/AGENTS.md` and `~/.cursor/hooks.json` from manifest-removal (managed merged files), remove only the memory-bank section and `_mb_owned` entries, delete `memory-bank-user-rules.md` and the `skills/memory-bank` alias, and `rmdir` empty `~/.cursor/{skills,hooks,commands}` directories.
+- **`tests/e2e/test_cursor_global.bats`** — 17 bats scenarios: install creates all five artifacts, idempotency, preserve-user-content in `AGENTS.md` + `hooks.json`, clean uninstall.
+- **`tests/pytest/test_cli.py::test_cli_install_uninstall_smoke_with_cursor_global`** — pytest smoke: real `install.sh` / `uninstall.sh` run in sandboxed `$HOME` with Cursor steps.
+- **Docs**:
+  - `SKILL.md` — Cursor promoted to the "native full support" tier, plus a new **Host-specific notes → Cursor** subsection with the five-artifact table and paste flow.
+  - `docs/cross-agent-setup.md` — supported clients table, **Cursor (full global parity + project adapter)** section, resource availability matrix with a Cursor column and a "Global rules" row, troubleshooting Q&A for User Rules.
+  - `README.md` — global install hint updated (Cursor included in baseline `memory-bank install`), new "Cursor-only quick start" section, adapter table extended with global artifacts.
+
+### Fixed
+
+- **`adapters/cursor.sh` — removed duplicate `# Global Rules` heading** in `.cursor/rules/memory-bank.mdc`. Previously the script wrote its own `# Global Rules` and then concatenated `rules/RULES.md`, which starts with the same heading, so the MDC file ended up with two identical H1s.
+
+### Changed
+
+- `install.sh` / `uninstall.sh` — added constants `CURSOR_DIR`, `CURSOR_SKILL_ALIAS`, `CURSOR_USER_RULES_FILE`, `CURSOR_START_MARKER` / `CURSOR_END_MARKER` (independent from Codex markers — allowing coexistence without conflicts in `~/.codex/AGENTS.md` vs `~/.cursor/AGENTS.md`).
+
+### Added (rolled up from prior Unreleased)
+
+- **Interactive client picker in `install.sh`** — when `--clients` is not set and stdin is a TTY, a multi-select menu is shown for 8 clients (`claude-code`, `cursor`, `windsurf`, `cline`, `kilo`, `opencode`, `pi`, `codex`). Accepts numbers, names, `all`, or empty input (`claude-code`). Suppressed by `--non-interactive` or non-TTY stdin.
+- **`install.sh --non-interactive`** — explicit interactive bypass for CI / scripted installs.
+- **Env `MB_CLIENTS`** — alternate way to set clients (same semantics as `--clients`), useful in Docker / pipx wrappers.
+- **`memory-bank install --non-interactive`** — forwards the flag from the Python CLI.
+- **`/mb install` subcommand** (section in `commands/mb.md`) — installs adapters from inside Claude Code / OpenCode / Codex. Uses `AskUserQuestion` for multi-select in CC and inline prompt in other agents. The `/mb` namespace protects against collisions with other skills.
+- **Windows compromise — Git Bash / WSL support**:
+  - `cli.py` no longer hard-fails on Windows. Added `find_bash()` with priority order: `MB_BASH` env override → `bash.exe` on PATH → `C:\Program Files\Git\bin\bash.exe` → WSL fallback.
+  - `system32\bash.exe` (WSL launcher shim) is ignored in favor of Git Bash / explicit WSL.
+  - `memory-bank doctor` now prints the resolved bash path on any platform.
+  - Missing bash on Windows now yields an actionable install hint (`winget` / WSL).
+- **README: full command reference** — two tables (18 top-level slash commands + 20 `/mb` subcommands), replacing the previous partial list of 23 lines.
+- **README: 3 ways to install cross-agent adapters** — interactive menu, CLI flags, `/mb install` from inside the agent.
+
+### Changed (rolled up from prior Unreleased)
+
+- `memory-bank install / uninstall / init / doctor` — removed `require_posix()` calls; now work on Windows when bash is available.
+- `tests/pytest/test_cli.py` — updated for the new platform model (29 tests, including 9 new `find_bash()` discovery tests + WSL wrapper mode).
+- `tests/bats/test_install_interactive.bats` — new file with 13 tests for CLI flags, validation, env overrides.
+
+### Docs (rolled up from prior Unreleased)
+
+- README: Platform matrix expanded (macOS native / Linux native / Windows Git Bash / Windows WSL / Windows without bash — the last one with a hint).
+- README: command tables numbered as "18 top-level + 20 `/mb` subcommands".
+
+---
+
+## [3.0.0-rc1] — 2026-04-20
+
+### Repository moved
+
+This skill moved to a new public repository: **[`fockus/skill-memory-bank`](https://github.com/fockus/skill-memory-bank)**. The old name `claude-skill-memory-bank` described only one of the 8 supported clients and had become misleading.
+
+**Migration guide:** [docs/repo-migration.md](docs/repo-migration.md).
+
+Historical releases (`v1.x`, `v2.0.0`, `v2.1.0`, `v2.2.0`) remain available in the old repository. `v3.0.0` and later are published in the new one.
+
+### Added
+
+- **Stage 8 — Cross-agent adapters** (7 clients beyond Claude Code): Cursor (CC-compat hooks), Windsurf (Cascade), Cline (`.clinerules/hooks/`), Kilo (+ git-hooks fallback), OpenCode (TS plugin with `experimental.session.compacting`), Codex (experimental hooks), Pi Code (dual-mode). See `docs/cross-agent-setup.md`.
+- **`adapters/_lib_agents_md.sh`** — refcount-based shared `AGENTS.md` ownership via `.mb-agents-owners.json`. Enables safe coexistence of OpenCode / Codex / Pi installs.
+- **`adapters/git-hooks-fallback.sh`** — universal `.git/hooks/` installer (post-commit auto-capture, pre-commit `<private>` warnings, chain pattern preserving user hooks).
+- **`install.sh --clients <list>`** — non-interactive multi-client install. Valid: `claude-code, cursor, windsurf, cline, kilo, opencode, pi, codex`.
+- **`docs/cross-agent-setup.md`** — complete per-client cheatsheet + hook capability matrix + troubleshooting FAQ.
+- **`docs/repo-migration.md`** — upgrade instructions for existing users.
+
+### Changed
+
+- Repository name: `claude-skill-memory-bank` → `skill-memory-bank`.
+- Install target directory: `~/.claude/skills/skill-memory-bank/` (previously `claude-skill-memory-bank/`).
+- `mb-upgrade.sh` now tracks the new origin URL.
+
+### Tests
+
+- **340+/340+ bats + e2e green** (+90 adapter bats, +10 install-clients e2e over v2.2.0).
+
+---
+
+## [2.2.0] — 2026-04-20
+
+Knowledge-reach release: cold-start through JSONL import, code graph for 6 languages, tags normalization through a controlled vocabulary.
+
+### Added
+
+- **`/mb import --project <path> [--since] [--apply]`** (`scripts/mb-import.py`) — bootstrap Memory Bank from Claude Code transcripts (`~/.claude/projects/<slug>/*.jsonl`). Extracts daily-grouped `progress.md` sections and arch-discussion notes (≥3 consecutive assistant messages >1K chars). Dedup via SHA256(timestamp + first 500 chars), resume through `.import-state.json`. PII auto-wrap (email + API-key → `<private>`) integrated with v2.1 Stage 3. `--dry-run` by default.
+- **`/mb graph [--apply] [src_root]`** (`scripts/mb-codegraph.py`) — code graph for Python (stdlib `ast`, always-on) + Go / JavaScript / TypeScript / Rust / Java (through tree-sitter, opt-in). Nodes = module/function/class, edges = import/call/inherit. Output: `codebase/graph.json` (JSON Lines, grep/jq friendly) + `codebase/god-nodes.md` (top-20 by degree). SHA256 incremental cache per file. `HAS_TREE_SITTER` flag provides graceful degradation without grammars. Skipped dirs: `.venv`, `node_modules`, `__pycache__`, `.git`, `target`, `dist`, `build`.
+- **`/mb tags [--apply] [--auto-merge]`** (`scripts/mb-tags-normalize.sh`) — Levenshtein-based synonym detection + merge through a controlled vocabulary. Distance ≤2 detection, ≤1 for `--auto-merge`. Vocabulary in `.memory-bank/tags-vocabulary.md` (user-editable) → fallback to `references/tags-vocabulary.md` (35 default tags). Exit 2 when unknown tags are found (drift signal).
+- **`references/tags-vocabulary.md`** — template with 35 default tags (Core: arch/auth/bug/perf/refactor/test/...; Process: debug/review/post-mortem/adr/spike; Workflow: blocked/todo/wip/imported/discussion).
+- **`mb-index-json.py`** — auto-kebab-case for tags: `FooBar → foo-bar`, `AUTH → auth`, `someThing → some-thing`. Dedup while preserving order. Source files remain untouched — only the index changes.
+
+### Changed
+
+- **`mb-codegraph.py`** — the Python-only v1 path was extended with a tree-sitter adapter for 5 new languages. Same node/edge schema. Lazy parser loading per language through `_TS_PARSERS` cache.
+- **`commands/mb.md`** — `/mb import`, `/mb graph`, `/mb tags` sections with full examples, dogfood outputs, and limitations.
+- **`install.sh`** — now prints a hint for tree-sitter extras.
+
+### Tests
+
+- pytest: **96** (was 44 after v2.1) — +17 `test_import`, +21 `test_codegraph` (Python), +14 `test_codegraph_ts` (tree-sitter).
+- bats: **208** (was 194) — +14 `test_tags_normalize`.
+- shellcheck: 0 warnings. ruff: all passed.
+
+### Gate v2.2 — passed ✅
+
+1. ✅ `/mb import` on real JSONL (2573 events) — **0.127s** (target ≤30s).
+2. ✅ `mb-codegraph.py` on `scripts/` — **0.068s** for 60 nodes + 487 edges (target ≤30s).
+3. ✅ Tags normalization: `sqlite_vec → sqlite-vec` auto-merged at distance=1, 2 notes rewritten. Unknown tag → exit 2 drift signal works.
+4. ✅ Full regression: 96 pytest + 208 bats + ruff + shellcheck clean.
+5. ✅ VERSION 2.2.0, CHANGELOG updated.
+
+### ADR pivots
+
+- **ADR-006 updated (Stage 6.5):** tree-sitter originally started as deferred opt-in. After user feedback ("I often work with Node/Go") it was implemented in v2.2, with graceful degradation when grammars are absent. The Python path remained zero-dependency. See BACKLOG (Stage 6.5 shipped entry).
+
+### Deferred to v3.x backlog
+
+- Haiku-powered compression for `/mb import` summaries (currently deterministic first+last chars).
+- Debug-session detection in `/mb import` for `lessons.md`.
+- Type inference in `/mb graph` (edges are currently name-based and do not distinguish modules with same-named functions).
+- tree-sitter grammars for C/C++/Ruby/PHP/Kotlin/Swift (add on demand via `_TS_LANG_CONFIG`).
+
+## [2.1.0] — 2026-04-20
+
+Hardening release: auto-capture when `/mb done` is forgotten, drift detection without AI, PII protection in notes, status-based decay for old plans and notes.
+
+### Added
+
+- **Auto-capture SessionEnd hook** (`hooks/session-end-autosave.sh`) — if a session closes without `/mb done`, the hook appends a placeholder entry to `progress.md`. Lock file `.memory-bank/.session-lock` is written by `/mb done` → the hook sees a fresh lock (<1h) and skips auto-capture. `MB_AUTO_CAPTURE` env: `auto` (default) / `strict` / `off`. Concurrent-safe through `.auto-lock` (30s TTL). Idempotent per `session_id`.
+- **Drift checkers without AI** (`scripts/mb-drift.sh`) — 8 deterministic checkers (path, staleness, script_coverage, dependency, cross_file, index_sync, command, frontmatter). Output: `drift_check_<name>=ok|warn|skip` + `drift_warnings=N`. Exit 0 when 0 warnings, otherwise 1. `agents/mb-doctor.md` Step 0 = `mb-drift.sh` → LLM call only if `drift_warnings > 0`. Saves AI tokens.
+- **PII markers `<private>...</private>`** in notes — block contents do not enter `index.json` (summary + tags filtered), and `mb-search` replaces them with `[REDACTED]` (inline) or `[REDACTED match in private block]` (multi-line). Unclosed `<private>` is fail-safe: tail to EOF is treated as private. Entries get `has_private: bool`. `--show-private` requires `MB_SHOW_PRIVATE=1` env (double confirmation). `hooks/file-change-log.sh` warns when a `.md` file with a `<private>` block is Write/Edit-ed.
+- **Compaction decay `/mb compact`** (`scripts/mb-compact.sh`) — status-based archival: requires **age > threshold AND done-signal**. Active plans (not done) are **NOT archived** even if >180d — warning only. Done-signal (OR): file physically under `plans/done/`, OR a `✅`/`[x]` marker in `checklist.md`, OR mentioned as "done|closed|shipped" in `progress.md`/`STATUS.md`. Notes — `importance: low` + mtime >90d + no references in core files. `--dry-run` (default) reasons only; `--apply` executes and touches `.last-compact`. Entries under `notes/archive/` get `archived: bool`. `mb-search --include-archived` is opt-in for archive search.
+
+### Changed
+
+- **`agents/mb-doctor.md`** — Step 0 is now `mb-drift.sh`; LLM steps (1-4) run only when `drift_warnings > 0` or `doctor-full`.
+- **`scripts/mb-index-json.py`** — parser for `<private>` blocks, `has_private: bool` + `archived: bool` fields in the entry schema.
+- **`scripts/mb-search.sh`** — span-aware Python filter for REDACTED replacement. Added `--show-private` + `--include-archived`.
+- **`settings/hooks.json`** — SessionEnd event added for auto-capture.
+- **`commands/mb.md`** — `/mb done` writes `.session-lock`. Added `/mb compact` section with full status-based logic and examples.
+- **`SKILL.md`** — "Private content" and "Auto-capture" sections.
+- **`references/metadata.md`** — schema extended with `has_private` + `archived` fields.
+
+### Tests
+
+- bats: **194** (20 `test_compact` + 4 `test_search_archived` + 5 `test_search_private` + 20 `test_drift` + 12 `test_auto_capture` + regressions).
+- pytest: **44** (7 PII + 2 archived + regressions).
+- e2e: 18 install/uninstall (including SessionEnd hook roundtrip).
+- shellcheck: 0 warnings (SC1091 info expected for `source _lib.sh`).
+- ruff: all passed.
+
+### Gate v2.1 — passed ✅
+
+1. ✅ Auto-capture end-to-end: simulated SessionEnd → `progress.md` updated without `/mb done`.
+2. ✅ `mb-drift.sh` on broken fixture: 7 warnings across 8 categories (≥5 target).
+3. ✅ PII security smoke: `TOP-SECRET-LEAK-CHECK-GATE21` inside `<private>` → **0 matches** in `index.json`.
+4. ✅ `/mb compact` dogfood: live bank is clean (0 candidates), artificial 150d done-plan → archived, 150d active-plan → not archived (safety works).
+5. ✅ CI matrix `[macos, ubuntu]` × (bats + e2e + pytest) green.
+
+### Deferred to backlog
+
+- LLM upgrade for auto-capture (currently append-only; details are reloaded by `/mb start` from JSONL).
+- `/mb done` weekly prompt for compaction checks.
+- Pre-commit drift hook as a separate file (YAGNI; documented in `references/templates.md`).
+
+## [2.0.0] — 2026-04-19
+
+Large refactor: the skill becomes language-agnostic, tested, CI-covered, and integrated with the Claude Code ecosystem. Three concepts under one roof: **Memory Bank + RULES + dev toolkit**.
+
+### Added
+
+- **Language detection (12 stacks)**: Python, Go, Rust, Node/TypeScript, Java, Kotlin, Swift, C/C++, Ruby, PHP, C#, Elixir. `scripts/mb-metrics.sh` emits key=value metrics for any of them.
+- **Override for project metrics**: `.memory-bank/metrics.sh` (priority 1 over auto-detect).
+- **`scripts/_lib.sh`** — shared utilities (workspace resolver, slug, collision-safe filename, detect_stack/test/lint/src_glob). 7 functions, 36 bats tests.
+- **`scripts/mb-plan-sync.sh`** and **`scripts/mb-plan-done.sh`** — automate plan↔checklist↔plan.md consistency through `<!-- mb-stage:N -->` markers.
+- **`scripts/mb-upgrade.sh`** — `/mb upgrade` self-update for the skill from GitHub (git fetch → prompt → ff-only pull + reinstall).
+- **`scripts/mb-index-json.py`** — pragmatic index for `notes/` (frontmatter) + `lessons.md` (H3 markers). Atomic write. PyYAML opt-in with fallback.
+- **`mb-search --tag <tag>`** — tag filtering via `index.json`.
+- **`/mb init [--minimal|--full]`** — unified initialization. `--full` (default) = `.memory-bank/` + `RULES.md` copy + stack auto-detect + `CLAUDE.md` + optional `.planning/` symlink.
+- **`/mb map [focus]`** — scan the codebase and generate `.memory-bank/codebase/{STACK,ARCHITECTURE,CONVENTIONS,CONCERNS}.md`.
+- **`/mb context --deep`** — full codebase content (default = 1-line summary).
+- **Frontend rules (FSD)** and **Mobile (iOS + Android)** in `rules/RULES.md` and `rules/CLAUDE-GLOBAL.md`.
+- **`MB_ALLOW_NO_VERIFY=1`** — bypass for `--no-verify` in `block-dangerous.sh`.
+- **Log rotation** for `file-change-log.sh`: >10 MB → `.log.1 → .log.2 → .log.3`.
+- **GitHub Actions** `.github/workflows/test.yml`: matrix `[ubuntu-latest, macos-latest]` × (bats + e2e + pytest) + lint job (shellcheck + ruff).
+- **148 bats tests** (unit + e2e + hooks + search-tag), **35 pytest tests**, **94% total coverage**.
+
+### Changed
+
+- **`codebase-mapper` → `mb-codebase-mapper`** (MB-native): output path `.planning/codebase/` → `.memory-bank/codebase/`; 770 lines → 316 (−59%); 6 templates → 4 (STACK, ARCHITECTURE, CONVENTIONS, CONCERNS), each ≤70 lines.
+- **`/mb update` and `mb-doctor`** no longer hardcode `pytest`/`ruff`/`src/taskloom/` — they use `mb-metrics.sh`.
+- **`SKILL.md` frontmatter** — invalid `user-invocable: false` replaced by `name: memory-bank` with a three-in-one concept description.
+- **`Task(...)` → `Agent(subagent_type=...)`** in all skill files. Grep check: 0 occurrences of `Task(`.
+- **`mb-doctor`** fixes desynchronization primarily through `mb-plan-sync.sh`/`mb-plan-done.sh`; Edit is reserved for semantic issues.
+- **`install.sh`** — always writes the `[MEMORY-BANK-SKILL]` marker when creating a new `CLAUDE.md` (previously only when merging into an existing one).
+- **`mb-manager actualize`** — now calls `mb-index-json.py` instead of manually writing `index.json`.
+- **`file-change-log.sh`** — removed `pass\s*$` from the placeholder regex (false positive); placeholder search now ignores Python docstrings.
+- **`install.sh` banner**: `19 dev commands` → `18 dev commands` (after init-command consolidation).
+
+### Deprecated
+
+- (none — all deprecations in this release are full removals; see Removed)
+
+### Removed
+
+- **`/mb:setup-project`** — merged into `/mb init --full`. `commands/setup-project.md` removed.
+- **Orphan agent `codebase-mapper`** — replaced with `mb-codebase-mapper`.
+- **Hardcoded `pytest -q` / `ruff check src/`** in `commands/mb.md` and `agents/mb-doctor.md`.
+- **All `Task(...)` invocations** in skill files (0 left).
+
+### Fixed
+
+- **E2E-found bug #1**: `install.sh` did not add the `[MEMORY-BANK-SKILL]` marker when creating a **new** `CLAUDE.md`. Result: `uninstall.sh` could not find the section to clean.
+- **E2E-found bug #2**: `uninstall.sh` used the GNU-only `realpath -m` flag. BSD `realpath` on macOS failed. Fix: the manifest already stores absolute paths, so `realpath` is unnecessary.
+- **Node `src_glob`**: brace-pattern `*.{ts,tsx,js,jsx}` replaced by space-separated globs for portable grep.
+- **`mb-note.sh`**: name collision (two notes in one minute) now yields `_2/_3` suffixes (previously `exit 1`).
+- **`file-change-log` false positives**: bare `pass` in Python, TODO inside docstrings.
+- **shellcheck SC1003** in the awk hook block — rewritten through `index()` without nested single-quote escapes.
+
+### Security
+
+- **`block-dangerous.sh`** updated with `MB_ALLOW_NO_VERIFY=1` explicit opt-in override — previously `--no-verify` was blocked with no safe escape.
+- **Secrets detection** in `file-change-log.sh` continues to work (`password|secret|api_key|token|private_key` in source code).
+
+### Infrastructure
+
+- **Dogfooding**: the skill now uses `.memory-bank/` in its own repository. The v2 refactor plan lives in `.memory-bank/plans/`, and sessions are closed through `/mb done`.
+- **VERSION marker**: `2.0.0-dev` → `2.0.0` written by `install.sh` into `~/.claude/skills/memory-bank/VERSION`.
+- **CI green** on macOS + Ubuntu, 0 shellcheck warnings, ruff all passed.
+
+---
+
+## [1.0.0] — 2025-10-XX (pre-refactor baseline)
+
+- Initial Memory Bank skill: `.memory-bank/` structure, `/mb` roadmap command, 4 agents, 2 hooks, 19 commands.
+- Python-first: hardcoded `pytest`, `ruff`, `src/taskloom/`.
+- Orphan artifacts from GSD: `codebase-mapper`, `.planning/`.
+- 0 automated tests.
+
+[2.0.0]: https://github.com/fockus/claude-skill-memory-bank/releases/tag/v2.0.0
+[1.0.0]: https://github.com/fockus/claude-skill-memory-bank/releases/tag/v1.0.0

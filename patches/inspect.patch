@@ -1,0 +1,163 @@
+--- a/extensions/inspect.ts
++++ b/extensions/inspect.ts
+@@ -43,7 +43,8 @@
+ 
+ let child: ChildProcess | null = null;
+ let lastStderr = "";
+-let piRef: ExtensionAPI | null = null;
++// Extension factories are cached across sessions; only active instances may own context.
++const activeContexts = new Map<ExtensionAPI, ExtensionContext>();
+ 
+ function probePort(p: number, timeoutMs = 250): Promise<boolean> {
+ 	return new Promise((resolve) => {
+@@ -347,14 +348,13 @@
+ 	await sm.flush();
+ }
+ 
+-let lastCtx: ExtensionContext | null = null;
+ let reqWatcher: FSWatcher | null = null;
+ const recentlyHandled = new Set<string>();
+ 
+ async function handleRequestFile(full: string): Promise<void> {
+ 	if (recentlyHandled.has(full)) return;
+ 	recentlyHandled.add(full);
+-	setTimeout(() => recentlyHandled.delete(full), 5000);
++	setTimeout(() => recentlyHandled.delete(full), 5000).unref();
+ 
+ 	let raw: string;
+ 	try { raw = readFileSync(full, "utf8"); } catch { return; }
+@@ -366,11 +366,14 @@
+ 		return;
+ 	}
+ 
+-	const cwd = lastCtx?.sessionManager.getCwd() ?? process.cwd();
++	const current = Array.from(activeContexts).at(-1);
++	if (!current) return;
++	const [pi, ctx] = current;
+ 	try {
++		const cwd = ctx.sessionManager.getCwd() ?? process.cwd();
+ 		await processToggleRequest(req, cwd);
+ 		try { unlinkSync(full); } catch {}
+-		if (lastCtx) await captureSnapshot(lastCtx);
++		await captureSnapshot(ctx, pi);
+ 	} catch (e: any) {
+ 		console.warn(`pi-inspect: toggle failed: ${e?.message ?? e}`);
+ 		try {
+@@ -381,6 +384,7 @@
+ }
+ 
+ function setupRequestWatcher(): void {
++	if (reqWatcher) return;
+ 	ensureReqDir();
+ 	sweepStaleRequests();
+ 	// Drain orphans at startup
+@@ -390,7 +394,6 @@
+ 			void handleRequestFile(joinPath(REQ_DIR, f));
+ 		}
+ 	} catch {}
+-	if (reqWatcher) return;
+ 	try {
+ 		// libuv aborts the process on an event under a Windows 8.3 short path, so watch the long form.
+ 		reqWatcher = fsWatch(realpathSync.native(REQ_DIR), (_event, filename) => {
+@@ -408,22 +411,24 @@
+ 	}
+ }
+ 
+-async function captureSnapshot(ctx: ExtensionContext): Promise<{ id: string; entry: IndexEntry } | null> {
++async function captureSnapshot(ctx: ExtensionContext, pi: ExtensionAPI): Promise<{ id: string; entry: IndexEntry } | null> {
++	if (activeContexts.get(pi) !== ctx) return null;
+ 	const sm = ctx.sessionManager;
+ 	const id = sm.getSessionId();
+-	if (!id || !piRef) return null;
++	if (!id) return null;
+ 	const cwd = sm.getCwd() ?? null;
+ 	const name = sm.getSessionName() ?? null;
+ 	const model = ctx.model?.id ?? null;
+ 	const systemPrompt = ctx.getSystemPrompt();
+-	const commands = piRef.getCommands();
+-	const tools = piRef.getAllTools();
+-	const activeTools = piRef.getActiveTools();
++	const commands = pi.getCommands();
++	const tools = pi.getAllTools();
++	const activeTools = pi.getActiveTools();
+ 	const activePaths = new Set<string>();
+ 	for (const { sourceInfo } of [...commands, ...tools]) {
+ 		if (sourceInfo?.path) activePaths.add(sourceInfo.path.replace(/\\/g, "/").toLowerCase());
+ 	}
+ 	const { disabled: disabledItems, pending: pendingItems } = await discoverFromPackages(cwd, activePaths);
++	if (activeContexts.get(pi) !== ctx) return null;
+ 	const capturedAt = Date.now();
+ 	const snap = { sessionId: id, sessionName: name, cwd, model, systemPrompt, commands, tools, activeTools, disabledItems, pendingItems, capturedAt };
+ 	try {
+@@ -494,21 +499,27 @@
+ }
+ 
+ export default function inspectExtension(pi: ExtensionAPI) {
+-	piRef = pi;
+-	setupRequestWatcher();
++	function rememberContext(ctx: ExtensionContext): void {
++		activeContexts.delete(pi);
++		activeContexts.set(pi, ctx);
++	}
+ 	pi.on("session_start", async (_event, ctx) => {
+-		lastCtx = ctx;
+-		await captureSnapshot(ctx);
++		rememberContext(ctx);
++		setupRequestWatcher();
++		await captureSnapshot(ctx, pi);
+ 	});
+ 	// session_start fires before all extensions register their tools/commands.
+ 	// before_agent_start fires after the user's first prompt with the fully assembled state — re-capture then.
+ 	pi.on("before_agent_start", async (_event, ctx) => {
+-		lastCtx = ctx;
+-		await captureSnapshot(ctx);
++		rememberContext(ctx);
++		await captureSnapshot(ctx, pi);
+ 	});
+ 	pi.on("session_shutdown", () => {
+-		reqWatcher?.close();
+-		reqWatcher = null;
++		activeContexts.delete(pi);
++		if (activeContexts.size === 0) {
++			reqWatcher?.close();
++			reqWatcher = null;
++		}
+ 	});
+ 
+ 	pi.registerCommand("inspect", {
+@@ -526,7 +537,7 @@
+ 			return SUBCOMMANDS.filter((s) => s.startsWith(prefix)).map((s) => ({ value: s, label: s }));
+ 		},
+ 		handler: async (args, ctx) => {
+-			lastCtx = ctx;
++			rememberContext(ctx);
+ 			const notify = (m: string, l: "info" | "error" = "info") => ctx.ui.notify(m, l);
+ 			const tokens = args.trim().split(/\s+/).filter(Boolean);
+ 			const first = tokens[0] as Sub | string | undefined;
+@@ -546,7 +557,7 @@
+ 
+ 			if (first === "start") {
+ 				if (!(await startServer(notify))) return;
+-				await captureSnapshot(ctx);
++				await captureSnapshot(ctx, pi);
+ 				notify(`pi-inspect started → ${url}`);
+ 				return;
+ 			}
+@@ -571,7 +582,7 @@
+ 			}
+ 
+ 			if (first === "snapshot") {
+-				const r = await captureSnapshot(ctx);
++				const r = await captureSnapshot(ctx, pi);
+ 				notify(r ? `snapshot captured: ${r.id}` : "no active session to snapshot", r ? "info" : "error");
+ 				return;
+ 			}
+@@ -581,7 +592,7 @@
+ 			const openTarget = (isExplicitOpen ? (tokens[1] ?? "web") : "web") as "web" | "app";
+ 
+ 			if (!(await startServer(notify))) return;
+-			await captureSnapshot(ctx);
++			await captureSnapshot(ctx, pi);
+ 
+ 			let openId: string | null = null;
+ 			if (!isExplicitOpen && first && !(SUBCOMMANDS as readonly string[]).includes(first)) {

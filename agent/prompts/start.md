@@ -1,0 +1,114 @@
+---
+description: "Loads the current project context from memory-bank. Use when starting project work — «начнём», «что в работе», «загрузи контекст»."
+allowed-tools: [Bash, Read, Task]
+---
+
+Canonical session-start command. `/mb start` is an alias that dispatches here.
+
+## Pre-flight: resolve Memory Bank path
+
+Memory Bank may live in one of three places. Always resolve the active bank through `mb_resolve_path` (in `scripts/_lib.sh`) — never assume `./.memory-bank/` is the only signal:
+
+1. **Local** — `<project>/.memory-bank/` (team-shared, default of `/mb init`).
+2. **Global** — `<agent_config>/memory-bank/projects/<id>/.memory-bank/` registered in `<agent_config>/memory-bank/registry.json` (personal storage chosen via `/mb init --storage=global --agent=<name>`).
+3. **Legacy** — `.claude-workspace` external pointer (still supported for backward compatibility).
+
+When **none** of the above resolves, surface `[MEMORY BANK: ABSENT]` and stop the lifecycle flow. Do **not** auto-initialize — the user may be in **rules-only mode** intentionally (TDD/SOLID/Clean Architecture/DRY/KISS/YAGNI/Testing Trophy still apply to code work; only Memory Bank commands stay inactive).
+
+Set `SKILL_DIR` to the absolute directory containing the loaded `SKILL.md` (or use the explicit `MB_SKILLS_ROOT` override). Set `MB_AGENT` to the current host id when using its global registry. Keep the project as cwd. Run this setup in the same shell invocation as each command below; tool shells need not preserve variables.
+
+<!-- mb-runtime:setup -->
+```bash
+SKILL_DIR="${MB_SKILLS_ROOT:-${SKILL_DIR:?Set SKILL_DIR from the loaded skill path}}"
+source "$SKILL_DIR/scripts/_lib.sh"
+BANK="$(mb_resolve_path)"
+if [ ! -d "$BANK" ]; then
+  echo "[MEMORY BANK: ABSENT]"
+  exit 0
+fi
+BANK="$(cd "$BANK" && pwd -P)"
+export MB_PATH="$BANK"
+```
+
+## Pre-flight: detect v1 layout
+
+Before loading context, check whether the project is still on v1 Memory Bank naming. Run:
+
+```bash
+ls "$BANK/" 2>/dev/null | grep -E '^(STATUS|BACKLOG|RESEARCH|plan)\.md$' || true
+```
+
+If any of `STATUS.md / BACKLOG.md / RESEARCH.md / plan.md` appear (and the corresponding lowercase variant — `status.md / backlog.md / research.md / roadmap.md` — is NOT present), the project is on v1 and must be migrated.
+
+Tell the user exactly:
+
+> "Detected v1 Memory Bank layout (uppercase STATUS.md / BACKLOG.md / plan.md). v2 requires lowercase names. Run:
+>
+> ```
+> bash "$SKILL_DIR/scripts/mb-migrate-v2.sh" --dry-run
+> ```
+>
+> to preview, then `--apply` to execute. Backup is created automatically."
+
+Do NOT proceed with context loading until migration is done, UNLESS the user explicitly says "read v1 anyway" — in which case fall back to reading the old names.
+
+## 1. Check whether Memory Bank is active
+
+```bash
+[ -d "$BANK" ] && echo "[MEMORY BANK: ACTIVE]" || echo "[MEMORY BANK: ABSENT]"
+```
+
+If inactive: tell the user and suggest `/mb init` (`--full` for stack auto-detect, `--minimal` for structure only). Stop.
+
+## 2. Collect context through the official script
+
+```bash
+bash "$SKILL_DIR/scripts/mb-context.sh" "$BANK"
+```
+
+The script reads `status.md`, `roadmap.md`, `checklist.md`, `research.md`, lists active plans (`plans/*.md` not in `done/`), folds per-document summaries from `.memory-bank/codebase/*.md` if populated, and prints the latest note.
+
+Each core file is trimmed to a per-file byte cap (`MB_CONTEXT_MAX_BYTES` → `.memory-bank/.mb-config` `context_max_bytes=` → 12288; `0` disables it). Trimming keeps whole `## ` sections of `status.md` and drops completed `✅` checklist items first, then prints a `[context] <file>: shown N of M lines` marker. Add `--full` to print every core file whole.
+
+For deep-context mode (full contents of codebase docs instead of summaries):
+
+```bash
+bash "$SKILL_DIR/scripts/mb-context.sh" --deep "$BANK"
+```
+
+## 2b. Cross-session coordination board (if present)
+
+```bash
+if [ -f "$BANK/COORDINATION.md" ]; then
+  bash "$SKILL_DIR/scripts/mb-coord.sh" active
+fi
+```
+
+If the board exists, parallel sessions share this working tree. Surface in the summary: which sessions are registered, any active FREEZE / HANDOVER / commit-order agreements, and entries addressed to this session that lack an ACK. Obey the shared-tree rules (scoped `git add` only, board checkpoints before stages/commits/shared-file edits). Protocol: `references/coordination.md`.
+
+## 3. Read the active plan in full (if any)
+
+If the `Active plans` section in the output lists a file, read it end-to-end before summarizing.
+
+## 4. Check `codebase/` bootstrap state
+
+If `<bank>/codebase/` is missing or contains no `*.md` files, surface a suggestion:
+
+```
+<bank>/codebase/ is empty. Run /mb map all to populate it (subagent: mb-codebase-mapper, sonnet). Default: skip.
+```
+
+Do **not** auto-invoke the mapper — the user owns the decision.
+
+## 5. Summarize focus
+
+Produce a 1-3 sentence summary covering:
+- Current phase / where the project is (from `status.md`)
+- What the user is working on right now (from active plan + checklist)
+- Next step per `roadmap.md`
+
+Mention metrics (tests passing, coverage) if they appear in `status.md` and have moved recently.
+
+## 6. For deeper actualization
+
+If the user needs MB Manager-level synthesis rather than a raw dump, invoke the MB Manager subagent with `action: context` — its prompt lives at `<SKILL_DIR>/agents/mb-manager.md`. Pass the output of `mb-context.sh`, the absolute `BANK`, and `SKILL_DIR` as input context. Every bank read uses that resolved path.

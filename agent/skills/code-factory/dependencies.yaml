@@ -1,0 +1,201 @@
+# Code Factory v2 — Dependencies
+# Скилы и инструменты, необходимые для работы Code Factory
+# install.sh проверяет и устанавливает всё автоматически
+
+# ═══════════════════════════════════════════════════
+# 1. OPEN-SOURCE SKILLS — published to GitHub
+#    Installed via git clone/pull by install.sh
+# ═══════════════════════════════════════════════════
+open_source:
+  - name: build
+    description: "GSD execution engine + MB quality layer + MB memory sync + review pipeline"
+    repo: "https://github.com/fockus/claude-skill-build"
+    install_dir: "~/.claude/skills/build"
+    install_command: "git clone https://github.com/fockus/claude-skill-build.git ~/.claude/skills/build"
+    update_command: "git -C ~/.claude/skills/build pull --ff-only"
+    provides:
+      - "/build:phase"
+      - "/build:team-phase"
+      - "/build:autonomous-all"
+      - "/build:quick"
+      - "/build:fast"
+      - "/build:init"
+      - "/build:help"
+      - "/build:review"
+      - "/build:status"
+      - "/pipeline"
+      - "/implement"
+    agents:
+      - reviewer
+      - judge
+      - developer
+      - architect
+      - tester
+      - security
+      - verifier
+      - critic
+      - debugger
+      - planner
+      - researcher
+      - explorer
+      - designer
+      - frontend
+      - mobile
+      - integrator
+      - analyst
+      - documentor
+    hooks:
+      - quality-gate.sh
+      - arch-review.sh
+      - active-test.sh
+      - py-quality.sh
+      - go-quality.sh
+      - judge-findings-gate.sh
+      - spec-verify.sh
+      - build-deps-check.sh
+      - build-install-deps.sh
+    used_by:
+      - "factory:start (sprint execution — build:phase, build:team-phase)"
+      - "factory:start (review — build:review with L0 reviewer agent)"
+      - "install.sh Step 3 (git clone/pull)"
+
+  - name: find-skill
+    description: "Поиск и установка скилов из каталога (1000+ скилов)"
+    repo: "https://github.com/fockus/claude-skill-find-skill"
+    install_dir: "~/.claude/skills/find-skill"
+    install_command: "git clone https://github.com/fockus/claude-skill-find-skill.git ~/.claude/skills/find-skill"
+    provides: ["/find-skill"]
+
+# ═══════════════════════════════════════════════════
+# 2. PYTHON PACKAGE — code-factory pip package
+# ═══════════════════════════════════════════════════
+python_package:
+  name: code-factory
+  requires_python: ">=3.12"
+  install_command: "uv pip install -e ."
+  verify_import: "from code_factory.pipeline import SprintPipeline"
+  dependencies:
+    - "cognitia>=1.1.0"
+    - "structlog>=25.1.0"
+
+# ═══════════════════════════════════════════════════
+# 3. EXTERNAL REQUIRED — обязательные внешние зависимости
+# ═══════════════════════════════════════════════════
+external_required:
+  - name: memory-bank
+    description: "Долгосрочная память проекта (.memory-bank/)"
+    check_command: "ls ~/.claude/skills/memory-bank/SKILL.md"
+    check_dir: "~/.claude/skills/memory-bank"
+    provides: ["/mb"]
+    used_by:
+      - "factory:init (MB initialization)"
+      - "factory:start (targeted memory recall, lessons injection)"
+      - "factory:status (memory index stats)"
+
+  - name: get-shit-done
+    description: "Planning & execution engine — 50+ commands"
+    install_command: "npx -y get-shit-done-cc@latest --claude --global"
+    check_command: "ls ~/.claude/commands/gsd/autonomous.md"
+    check_dir: "~/.claude/get-shit-done"
+    provides:
+      - "/gsd:plan-phase"
+      - "/gsd:execute-phase"
+      - "/gsd:discuss-phase"
+      - "/gsd:verify-work"
+      - "/gsd:autonomous"
+    used_by:
+      - "build:phase (Step 2-3)"
+      - "build:team-phase (Step 1-2)"
+      - "factory:start (sprint planning)"
+
+  - name: context-engineering-kit
+    description: "66 skills: SDD, SADD, Reflexion, Kaizen, FPF"
+    install_command: "npx skills add NeoLabHQ/context-engineering-kit --yes --global"
+    check_command: "ls ~/.claude/skills/sdd-brainstorm/SKILL.md"
+    provides:
+      - sdd-brainstorm
+      - sdd-plan
+      - reflexion-critique
+      - reflexion-reflect
+      - kaizen-why
+      - kaizen-analyse-problem
+      - sadd-do-competitively
+      - sadd-tree-of-thoughts
+    used_by:
+      - "factory:goal (research — sdd-brainstorm)"
+      - "factory:start (reflexion — reflexion-reflect, kaizen-why)"
+      - "build:phase (SDD Alternative — sdd-plan)"
+
+  - name: find-skill
+    description: "Dynamic skill discovery at runtime (L3 fallback chain)"
+    check_dir: "~/.claude/skills/find-skill"
+    check_command: "ls ~/.claude/skills/find-skill/cache/catalogue.json"
+    provides: ["/find-skill"]
+    used_by:
+      - "PromptFallbackChain L3 (auto-invocation)"
+
+# ═══════════════════════════════════════════════════
+# 4. EXTERNAL RECOMMENDED — рекомендуемые
+# ═══════════════════════════════════════════════════
+external_recommended:
+  - name: claude-code-harness
+    description: "Harness pattern: plan -> work -> review -> release + runtime guardrails"
+    install_command: "git clone https://github.com/Chachamaru127/claude-code-harness.git ~/.claude/skills/claude-code-harness"
+    check_command: "ls ~/.claude/skills/harness-plan/SKILL.md"
+    provides:
+      - "/harness-plan"
+      - "/harness-work"
+      - "/harness-review"
+      - "/harness-release"
+    used_by:
+      - "factory:start (harness-review for sprint evaluation)"
+
+  - name: backend-development
+    description: "Backend specialist agents (10 roles)"
+    check_dir: "~/.claude/skills/backend-development"
+    provides: [backend-architect, test-automator, temporal-python-pro, security-auditor]
+
+  - name: frontend-development
+    description: "Frontend specialist agents (React, Vue, CSS)"
+    check_dir: "~/.claude/skills/frontend-development"
+    provides: [frontend-architect, react-pro, css-pro]
+
+  - name: python-development
+    description: "Python specialist agents (3 roles)"
+    check_dir: "~/.claude/skills/python-development"
+    provides: [fastapi-pro, python-pro, django-pro]
+
+  - name: tdd-workflows
+    description: "TDD orchestration and code review"
+    check_dir: "~/.claude/skills/tdd-workflows"
+    provides: [tdd-orchestrator, code-reviewer]
+
+  - name: ui-design
+    description: "UI design specialist agents (3 roles)"
+    check_dir: "~/.claude/skills/ui-design"
+    provides: [design-system-architect, ui-designer, accessibility-expert]
+
+# ═══════════════════════════════════════════════════
+# 5. CLAUDE CODE SETTINGS — необходимые настройки
+# ═══════════════════════════════════════════════════
+settings_required:
+  - key: "env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"
+    value: "1"
+    description: "Enables Agent Teams (TeamCreate, SendMessage, shared task list)"
+    critical: true
+
+# ═══════════════════════════════════════════════════
+# 6. OPTIONAL DYNAMIC — устанавливаются через /find-skill
+# ═══════════════════════════════════════════════════
+optional_dynamic:
+  - category: testing
+    trigger: "project has UI or E2E tests"
+    examples: [playwright, cypress, vitest, pytest]
+
+  - category: deployment
+    trigger: "docker/k8s in project stack"
+    examples: [docker, kubernetes, terraform, vercel]
+
+  - category: frameworks
+    trigger: "project stack includes framework"
+    examples: [nextjs, fastapi, django, express, svelte]

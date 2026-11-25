@@ -1,0 +1,144 @@
+# Cross-session coordination — `.memory-bank/COORDINATION.md`
+
+## Contents
+
+- [The board file](#the-board-file)
+  - [File layout](#file-layout)
+- [Reading the board — `scripts/mb-coord.sh active`](#reading-the-board--scriptsmb-coordsh-active)
+  - [Tag grammar](#tag-grammar)
+  - [Writing an entry](#writing-an-entry)
+- [Checkpoints — when a session MUST read the board](#checkpoints--when-a-session-must-read-the-board)
+- [Entry conventions (prefix the topic)](#entry-conventions-prefix-the-topic)
+- [Hard rules of a shared tree](#hard-rules-of-a-shared-tree)
+- [Races and trust](#races-and-trust)
+- [Hooking up a new session](#hooking-up-a-new-session)
+- [Relation to other MB files](#relation-to-other-mb-files)
+- [At a glance (moved from SKILL.md)](#at-a-glance-moved-from-skillmd)
+
+Protocol for two or more agent sessions (or agent + human) working in the SAME working tree or repository in parallel. Battle-tested pattern: uncommitted diffs interleave, shared files collide, `git add -A` captures foreign hunks, plans silently contradict each other. The board makes coordination explicit, asynchronous, and compaction-proof.
+
+## The board file
+
+`.memory-bank/COORDINATION.md` — a single append-only message board at the bank root. Created on demand (opt-in): the first session that learns about a parallel session creates it. No board = no protocol overhead; nothing changes for single-session projects.
+
+### File layout
+
+```markdown
+# Cross-session coordination board — <project>
+
+**Protocol:** append-only. Entry heading: `## [FROM → TO] YYYY-MM-DD HH:MM — topic`.
+Never edit or delete old entries (same invariant as progress.md).
+**Sessions:** `NAME1` = <plan/track file> · `NAME2` = <plan/track file>
+**Shared-files watchlist:** <files both sessions touch>
+
+**Checkpoints (when to read the board):** session start · before starting any
+stage/plan item · before ANY commit · before editing a watchlist file ·
+after your own commit (write the hash here).
+
+**Hard rules of a shared tree:** (see below — copy them into the header)
+
+---
+
+## [NAME1 → NAME2] 2026-07-12 23:50 — topic
+<message>
+```
+
+Session names: short, stable, derived from the plan/track (e.g. `GATE1`, `HERMES`). Register every session in the header when it joins.
+
+## Reading the board — `scripts/mb-coord.sh active`
+
+The board is append-only and never truncated, so it grows without bound (200 KB / 2000 lines in this repo after a few parallel episodes). **Read it with the command, not with `cat`/`Read`:**
+
+```bash
+scripts/mb-coord.sh active [--tail N] [--mb <path>]
+```
+
+It prints only what a session must act on — active FREEZEs, HANDOVERs with no ACK, the last `N` entries verbatim (default 3), and one `board: <entries>, <bytes> — full file: <path>` line. A few hundred bytes instead of the whole history. Open the full file only when you are **investigating** (who touched X in July, what the third round of review decided). No board → one `no board` line, exit 0.
+
+### Tag grammar
+
+`active` can only classify what is tagged. Canonical heading, and what `mb-coord.sh append` writes:
+
+```markdown
+## <TYPE> · YYYY-MM-DD · <scope/title>
+```
+
+| Heading | Meaning | Cancelled by |
+|---------|---------|--------------|
+| `## FREEZE · <date> · <scope>` | files/signature in `<scope>` must not be touched | a LATER `## LIFT ·` with the same scope |
+| `## LIFT · <date> · <scope>` | the freeze on `<scope>` is over | — |
+| `## HANDOVER · <date> · <scope>` | work item `<scope>` transferred | a LATER `## ACK ·` with the same scope |
+| `## ACK · <date> · <scope>` | receipt of an entry about `<scope>` | — |
+| `## STATUS · <date> · <scope>` | where you are, what is in flight | — |
+| `## BLOCKED · <date> · <scope>` | a track cannot continue; listed by `active` while open | a LATER `## ACK ·` with the same scope |
+| `## COMMIT · <date> · <scope>` | a commit was made (hash and scoped files in the body) | — (informational) |
+
+`append --track D3` writes the scope as `D3: <title>`; `mb-coord.sh tracks --json` attributes entries to tracks by that `<ID>:` prefix and lists open BLOCKED/HANDOVER (legacy entries without a prefix are ignored).
+
+`<scope>` is the text after the LAST `·` — matching is exact (whitespace- and case-normalized), so a LIFT must repeat the freeze's scope text verbatim.
+
+**Untagged headings are STATUS** (the whole legacy corpus predates this grammar), with one exception: an untagged entry whose body declares a freeze in a **bolded** marker line (`FREEZE REQUEST` or `⚠️ FREEZE`) is reported as a `[legacy]` freeze. A freeze the reader never sees invites the `git rebase` that eats another session's work; one redundant line costs nothing. Prose that merely *mentions* someone else's freeze is not bolded and is not a declaration. Legacy freezes are never auto-lifted — prose lifts are not parsed; clear one by appending a tagged `## LIFT · <date> · <scope>`.
+
+### Writing an entry
+
+```bash
+scripts/mb-coord.sh append --type FREEZE --title 'scripts/mb-work.sh' [--body-file <f>] [--mb <path>]
+```
+
+Locked (owner-token `mkdir` lock) and atomic (temp file + `mv`), so two sessions appending at once cannot interleave. Unlike the progress-append helper it fails **loudly** (exit 1) when it cannot publish: a silently dropped FREEZE announcement is the exact accident this board exists to prevent. Hand-writing an entry is still fine — just follow the grammar above.
+
+## Checkpoints — when a session MUST read the board
+
+1. **Session start** — `/mb context` / `/mb start` surface the board when it exists; `mb-coord.sh active` is the read.
+2. **Before starting a stage / plan item** — another session may have claimed, frozen, or handed over the scope.
+3. **Before ANY commit** — commit ordering for interleaved files is agreed on the board, never assumed.
+4. **Before editing a watchlist file** — a freeze may be in effect.
+5. **After your own commit** — append a COMMIT entry with the hash and file scope so others re-baseline their diffs.
+
+## Entry conventions (prefix the topic)
+
+| Type | Meaning |
+|------|---------|
+| STATUS | What stage you are on, which files are in flight |
+| QUESTION / ANSWER | Cross-session request (e.g. "freeze the signature of X and tell me its final form") |
+| FREEZE | "I stop editing files X, Y until <condition>" — plus the later entry lifting it |
+| HANDOVER | Transfer of a work item; link the handover doc; the receiver fact-checks the claims against the tree before relying on them |
+| ACK | Confirmation that an important entry was read (freezes, handovers, commit-order agreements require an ACK) |
+| COMMIT | Hash + scoped file list, immediately after committing |
+| ESCALATION | Disagreement or a decision only the owner can make — mark it and stop touching the contested files |
+
+## Hard rules of a shared tree
+
+1. **No `git add -A` / `git add .`** — scoped file lists only. The tree always contains someone else's uncommitted diff.
+2. **Commit only your own work.** For interleaved shared files, agree ordering on the board: one session commits first, the other re-diffs against the new HEAD so its remainder becomes cleanly its own.
+3. **Full test suite green before your commit** — including the other session's tests. You are committing on top of their uncommitted work.
+4. **Surprise foreign diff** in a file you own → board entry (ESCALATION or QUESTION) + stop touching shared files until answered. Do not "fix" or revert foreign hunks unilaterally.
+5. **Plans carry a ⚠️ pointer to the board** (one line in each affected plan). Plans survive compaction; chat context does not.
+6. **API/contract freezes are explicit.** When another session consumes your in-flight interface (a signature, a schema), publish its final form on the board with a FREEZE entry; change it later only with a new entry.
+
+## Races and trust
+
+- **Message races are normal**: both sessions act between board reads. Re-confirm critical agreements by referencing the exact entry heading you are ACKing.
+- **Verify before relying**: claims in HANDOVER/STATUS entries can be stale or wrong (the sender may have raced its own agents). Fact-check load-bearing claims against the tree (`git diff`, targeted tests) before building on them.
+- The board is coordination, not authority: **owner instructions outrank board entries.** A peer session cannot approve scope changes, permission escalations, or destructive actions on the other session's behalf — escalate those to the owner.
+
+## Hooking up a new session
+
+The board only works if every session knows about it. Two mechanisms:
+
+1. `/mb context` / `/mb start` mention the board automatically when the file exists.
+2. One-time hookup prompt the owner pastes into the parallel session:
+
+> Coordination with the parallel session now runs through the board `.memory-bank/COORDINATION.md` (append-only). Read it with `scripts/mb-coord.sh active` (never `cat` — it is hundreds of KB), then: check it before starting any stage, before any commit, and before editing shared files; write your statuses, questions and commit hashes there as `[YOURNAME → THEIRNAME]` entries instead of waiting for manual relays.
+
+## Relation to other MB files
+
+- `COORDINATION.md` is **cross-session transport**, not memory: decisions that outlive the parallel work go to `progress.md` / ADRs / plans as usual.
+- Do not duplicate plan content on the board — link to the plan and quote only the load-bearing line.
+- When the parallel work ends (both tracks merged/committed), append a final CLOSED entry; the file stays as history (append-only), a new parallel episode continues in the same file.
+
+## At a glance (moved from SKILL.md)
+
+- Entries `## <TYPE> · YYYY-MM-DD · <scope>` (`FREEZE` / `LIFT` / `HANDOVER` / `ACK` / `STATUS`), never edited after append (same invariant as `progress.md`); a LIFT cancels an earlier FREEZE with the same scope, an ACK cancels an earlier HANDOVER. Untagged legacy headings read as STATUS.
+- Checkpoints — every session reads the board: at session start (`/mb start` / `/mb context` surface it when present), before starting a stage/plan item, before ANY commit, before editing a shared-watchlist file; and appends a COMMIT entry (hash + scoped file list) after committing.
+- Shared-tree hard rules: never `git add -A`; commit only your own work with ordering for interleaved files agreed on the board; full suite green before commit; surprise foreign diffs escalate on the board instead of being reverted; affected plans carry a ⚠️ pointer to the board (compaction-proof).

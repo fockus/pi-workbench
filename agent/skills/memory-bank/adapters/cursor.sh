@@ -1,0 +1,778 @@
+#!/usr/bin/env bash
+# adapters/cursor.sh — Cursor IDE adapter for Memory Bank.
+#
+# Cursor 1.7+ (October 2025) added a Claude-Code-compatible hooks API.
+# This adapter writes .cursor/rules/memory-bank.mdc (rules) + .cursor/hooks.json
+# (events → bundled skill hooks under ~/.cursor/skills/memory-bank/hooks/ or the
+# repo/skill bundle). Hook scripts are NOT copied into .cursor/hooks/ — commands
+# reference the canonical skill bundle so bundled scripts/ resolve correctly.
+#
+# Usage:
+#   adapters/cursor.sh install [PROJECT_ROOT]
+#   adapters/cursor.sh uninstall [PROJECT_ROOT]
+#   adapters/cursor.sh install-global|uninstall-global
+#   adapters/cursor.sh render-agents [PIPELINE]   (re-render installed ~/.cursor/agents)
+#
+# Idempotent. Preserves user-owned hooks in existing .cursor/hooks.json via jq merge.
+# Manifest in .cursor/.mb-manifest.json tracks ownership for clean uninstall.
+
+set -euo pipefail
+
+ACTION="${1:-}"
+PROJECT_ROOT_RAW="${2:-$(pwd)}"
+
+if [ "$ACTION" = "install" ] || [ "$ACTION" = "uninstall" ]; then
+  if [ ! -d "$PROJECT_ROOT_RAW" ]; then
+    echo "[cursor-adapter] project root not found: $PROJECT_ROOT_RAW" >&2
+    exit 1
+  fi
+  PROJECT_ROOT="$(cd "$PROJECT_ROOT_RAW" && pwd)"
+else
+  PROJECT_ROOT=""
+fi
+
+SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+CURSOR_DIR="$PROJECT_ROOT/.cursor"
+RULES_FILE="$CURSOR_DIR/rules/memory-bank.mdc"
+HOOKS_JSON="$CURSOR_DIR/hooks.json"
+HOOKS_DIR="$CURSOR_DIR/hooks"
+MANIFEST="$CURSOR_DIR/.mb-manifest.json"
+GLOBAL_CURSOR_DIR="$HOME/.cursor"
+GLOBAL_HOOKS_DIR="$GLOBAL_CURSOR_DIR/hooks"
+GLOBAL_COMMANDS_DIR="$GLOBAL_CURSOR_DIR/commands"
+GLOBAL_AGENTS_DIR="$GLOBAL_CURSOR_DIR/agents"
+GLOBAL_HOOKS_JSON="$GLOBAL_CURSOR_DIR/hooks.json"
+GLOBAL_AGENTS_FILE="$GLOBAL_CURSOR_DIR/AGENTS.md"
+GLOBAL_USER_RULES_FILE="$GLOBAL_CURSOR_DIR/memory-bank-user-rules.md"
+GLOBAL_MANIFEST="$GLOBAL_CURSOR_DIR/.mb-manifest.json"
+CURSOR_START_MARKER="<!-- memory-bank-cursor:start -->"
+CURSOR_END_MARKER="<!-- memory-bank-cursor:end -->"
+
+# shellcheck disable=SC1091
+. "$(dirname "$0")/_lib_agents_md.sh"
+# shellcheck disable=SC1091
+. "$(dirname "$0")/_framework.sh"
+# shellcheck disable=SC1091
+. "$(dirname "$0")/_contract.sh"
+
+# Hook scripts registered from the skill bundle (not copied into .cursor/hooks/)
+MB_HOOKS=(
+  "mb-session-end.sh"
+  "mb-session-turn.sh"
+  "mb-pre-compact.sh"
+  "block-dangerous.sh"
+  "mb-protected-paths-guard.sh"
+  "mb-ears-pre-write.sh"
+  "mb-context-slim-pre-agent.sh"
+  "mb-sprint-context-guard.sh"
+  "file-change-log.sh"
+  "mb-plan-sync-post-write.sh"
+  "mb-session-start-context.sh"
+  "mb-update-notify.sh"
+)
+
+# Event → script mapping (Cursor event names, CC-compat)
+# Format: "event:script[:matcher]"
+EVENT_BINDINGS=(
+  "sessionStart:mb-session-start-context.sh"
+  # A5/stage-3: "is a newer release out?" notice — silent when up to date,
+  # <=3 lines when not. Registered alongside the context-injection hook, not
+  # in place of it: this hook's stdout is plain text (not the
+  # hookSpecificOutput JSON contract), which Cursor's CC-compatible hooks
+  # runtime still surfaces as additional context when non-empty.
+  "sessionStart:mb-update-notify.sh"
+  # adapter-parity T7 (REQ-021): the CC-tier claim requires mb-session-turn.sh
+  # (CC's real Stop hook — see its own header comment) to actually CREATE/
+  # append the per-turn session/*.md entry; mb-session-end.sh below only
+  # SUMMARIZES an existing file (`sc_find_session_file` no-ops silently when
+  # none exists). Before this binding, Cursor wired sessionEnd alone, so no
+  # session file was ever created — verified empirically (T7 investigation):
+  # installing the adapter and invoking the wired sessionEnd command against
+  # an empty bank left `.memory-bank/session/` absent. "stop" follows the
+  # same camelCase-of-CC-PascalCase convention already used for every other
+  # binding here (sessionStart/sessionEnd/preCompact/preToolUse/postToolUse).
+  "stop:mb-session-turn.sh"
+  # B4 (F-4): mb-session-end.sh is the CC-compatible rich capture (Haiku summary +
+  # gated Sonnet judge notes), not just the basic placeholder-only
+  # session-end-autosave.sh — Cursor now gets the same capture Claude Code does.
+  # Fail-open: no `claude` binary / no session file → the script silently no-ops.
+  "sessionEnd:mb-session-end.sh"
+  "preCompact:mb-pre-compact.sh"
+  "beforeShellExecution:block-dangerous.sh"
+  "preToolUse:mb-protected-paths-guard.sh:Write|Edit"
+  "preToolUse:mb-ears-pre-write.sh:Write"
+  "preToolUse:mb-context-slim-pre-agent.sh:Task"
+  "preToolUse:mb-sprint-context-guard.sh:Task"
+  "postToolUse:file-change-log.sh:Write|Edit"
+  "postToolUse:mb-plan-sync-post-write.sh:Write"
+)
+
+run_texttool() {
+  # Use the interpreter that owns the memory_bank_skill package (exported by the
+  # CLI as MB_PYTHON). A bare `python3` resolves to whatever is first on PATH —
+  # under pipx/pyenv that is NOT the venv holding the package, so the import of
+  # memory_bank_skill._texttools fails. Fall back to python3 for git checkouts.
+  PYTHONSAFEPATH=1 PYTHONPATH="$SKILL_DIR${PYTHONPATH:+:$PYTHONPATH}" \
+    "${MB_PYTHON:-python3}" -m memory_bank_skill._texttools "$@"
+}
+
+language_rule_full() {
+  case "${MB_LANGUAGE:-en}" in
+    ru) printf '%s' "Russian — responses and code comments. Technical terms may remain in English." ;;
+    *) printf '%s' "English — responses and code comments. Technical terms may remain in English." ;;
+  esac
+}
+
+language_rule_short() {
+  case "${MB_LANGUAGE:-en}" in
+    ru) printf '%s' "respond in Russian; technical terms may remain in English." ;;
+    *) printf '%s' "respond in English; technical terms may remain in English." ;;
+  esac
+}
+
+comments_language_name() {
+  case "${MB_LANGUAGE:-en}" in
+    ru) printf '%s' "Russian" ;;
+    *) printf '%s' "English" ;;
+  esac
+}
+
+localize_file_with_language() {
+  local path="$1"
+  local after_marker="${2:-}"
+  [ -f "$path" ] || return 0
+  run_texttool localize-file \
+    --path "$path" \
+    --rule-full "$(language_rule_full)" \
+    --rule-short "$(language_rule_short)" \
+    --comments-language "$(comments_language_name)" \
+    --after-marker "$after_marker"
+}
+
+cursor_binding_events_json() {
+  printf '%s\n' "${EVENT_BINDINGS[@]}" | awk -F: '{print $1}' | sort -u | adapter_json_array_from_lines
+}
+
+# adapter-parity T7 (REQ-015/017): honest platform_limited for Cursor.
+# Cursor gets the full CC-compatible lifecycle hook set (sessionStart/stop/
+# sessionEnd/preCompact/tool guards, twelve `_mb_owned` entries) and genuine
+# update-notify + session/*.md v2-schema capture (see the REQ-021 tests in
+# tests/bats/test_cursor_adapter.bats) — those are NOT limited. Subagents are
+# not limited either (I-244): Cursor natively discovers subagents from
+# ~/.cursor/agents/*.md (cursor.com/docs/agent/subagents) and its Task tool
+# dispatches them by name; install-global renders our roles there. Two genuine
+# ceilings remain:
+#   - statusline: no equivalent to Claude Code's stdin-JSON statusLine render
+#     surface (scripts/mb-statusline.py) exists in Cursor's hooks API.
+#   - role-routing: same closed-vocabulary term as OpenCode/Pi — the model
+#     makes the Task call from the command text; no deterministic harness
+#     drives or verifies per-role routing on Cursor.
+cursor_platform_limited_json() {
+  jq -n '["statusline","role-routing"]'
+}
+
+cursor_platform_limited_notes_json() {
+  jq -n \
+    --arg statusline "Claude Code's stdin-JSON statusLine render surface (scripts/mb-statusline.py) has no equivalent in Cursor's hooks API." \
+    --arg role_routing "Cursor natively discovers subagents from ~/.cursor/agents/*.md (install-global renders the mb-* roles there; ~/.claude/agents is also read, .cursor wins on a name clash) and dispatches them through its Task tool; the model makes that call from the command text — no deterministic harness drives or verifies per-role routing on Cursor." \
+    '{"statusline": $statusline, "role-routing": $role_routing}'
+}
+
+cursor_resolve_skill_hooks_dir() {
+  local candidate resolved=""
+  for candidate in \
+    "$HOME/.cursor/skills/memory-bank/hooks" \
+    "$SKILL_DIR/hooks"; do
+    if [ -d "$candidate" ]; then
+      resolved="$(cd "$candidate" && pwd)"
+      printf '%s' "$resolved"
+      return 0
+    fi
+  done
+  return 1
+}
+
+cursor_hook_env_prefix() {
+  local skills_root="$HOME/.cursor/skills"
+  if [ ! -d "$skills_root/memory-bank" ]; then
+    skills_root="$HOME/.claude/skills"
+  fi
+  # A15 (M-7): unquoted MB_SKILLS_ROOT breaks the moment $HOME contains a
+  # space (e.g. "/Users/john doe") — Cursor's hook runner hands this string
+  # to a shell, which splits the value at the first space into a stray extra
+  # word. %q shell-escapes spaces/quotes/`$` so the assignment round-trips
+  # safely through the JSON command string.
+  printf 'MB_AGENT=cursor MB_SKILLS_ROOT=%q ' "$skills_root"
+}
+
+# Hook names that were registered in previous versions but are no longer current.
+# These must be removed from any copy directories on reinstall so stale binaries
+# do not shadow the canonical bundled scripts.  Currently includes the
+# handoff-v2 rename (mb-compact-reminder.sh → mb-pre-compact.sh).
+LEGACY_MB_HOOKS=(
+  "mb-compact-reminder.sh"
+)
+
+cursor_remove_legacy_hook_copies() {
+  local base h
+  for base in "$GLOBAL_HOOKS_DIR" "$HOOKS_DIR"; do
+    [ -d "$base" ] || continue
+    # Remove current hook names (in case old installs left copies here).
+    for h in "${MB_HOOKS[@]}"; do
+      if [ -f "$base/$h" ]; then
+        rm -f "$base/$h"
+      fi
+    done
+    # Remove legacy hook names from old installs.
+    for h in "${LEGACY_MB_HOOKS[@]}"; do
+      if [ -f "$base/$h" ]; then
+        rm -f "$base/$h"
+      fi
+    done
+    rmdir "$base" 2>/dev/null || true
+  done
+}
+
+cursor_build_hooks_json() {
+  local hooks_dir="$1"
+  local our_hooks_json binding event rest script matcher cmd entry env_prefix
+  env_prefix="$(cursor_hook_env_prefix)"
+  our_hooks_json=$(jq -n '{hooks: {}}')
+  for binding in "${EVENT_BINDINGS[@]}"; do
+    event="${binding%%:*}"
+    rest="${binding#*:}"
+    script="${rest%%:*}"
+    if [[ "$rest" == *:* ]]; then
+      matcher="${rest#*:}"
+    else
+      matcher=""
+    fi
+    cmd="${env_prefix}bash \"${hooks_dir}/${script}\""
+    if [ -n "$matcher" ]; then
+      entry=$(jq -n --arg cmd "$cmd" --arg m "$matcher" '{command:$cmd, matcher:$m, _mb_owned:true}')
+    else
+      entry=$(jq -n --arg cmd "$cmd" '{command:$cmd, _mb_owned:true}')
+    fi
+    our_hooks_json=$(echo "$our_hooks_json" | jq \
+      --arg event "$event" \
+      --argjson entry "$entry" \
+      '.hooks[$event] += [$entry]')
+  done
+  printf '%s' "$our_hooks_json"
+}
+
+# A23 (CDX-I8): the project rules file is a whole-file `{ ... } > "$RULES_FILE"`
+# overwrite with no backup at all — a user's own pre-existing same-named
+# memory-bank.mdc is clobbered without a recoverable copy. Back it up ONCE
+# (idempotent: a second install does not pile up backups), recorded in the
+# project manifest's `backups` for auditability (mirrors codex.sh/opencode.sh).
+MB_CURSOR_BACKUPS=()
+
+_cursor_backup_once() {
+  local f="$1" b backup
+  [ -f "$f" ] || return 0
+  _mb_owned_unedited "$f" "$MANIFEST" && return 0
+  for b in "$f".pre-mb-backup.*; do [ -f "$b" ] && return 0; done
+  backup="$f.pre-mb-backup.$(date +%s).$$"
+  cp "$f" "$backup" 2>/dev/null && MB_CURSOR_BACKUPS+=("$backup")
+}
+
+copy_to_clipboard() {
+  local file="$1"
+  if command -v pbcopy >/dev/null 2>&1; then
+    pbcopy < "$file"
+    return 0
+  fi
+  if command -v xclip >/dev/null 2>&1; then
+    xclip -selection clipboard < "$file"
+    return 0
+  fi
+  if command -v wl-copy >/dev/null 2>&1; then
+    wl-copy < "$file"
+    return 0
+  fi
+  return 1
+}
+
+prompt_user_rules_install() {
+  local rules_file="$1"
+  [ -t 0 ] || return 0
+  [ "${MB_USER_RULES_AUTO_PROMPT:-on}" = "off" ] && return 0
+
+  echo
+  echo "Cursor User Rules — manual paste required (Cursor has no file API)."
+  echo "  1) Copy to clipboard + open Cursor (Settings → Rules → Cmd+V) [default]"
+  echo "  2) Copy to clipboard only"
+  echo "  3) Open file in \$EDITOR"
+  echo "  4) Skip"
+  read -r -p "Choice [1-4]: " choice
+  case "${choice:-1}" in
+    1)
+      if copy_to_clipboard "$rules_file"; then
+        if command -v open >/dev/null 2>&1; then
+          open -a Cursor 2>/dev/null || true
+        fi
+        echo "→ Copied. Open Cursor → Settings → Rules → User Rules → Cmd+V"
+      else
+        echo "→ Clipboard unavailable. Paste manually from: $rules_file"
+      fi
+      ;;
+    2)
+      if copy_to_clipboard "$rules_file"; then
+        echo "→ Copied. Settings → Rules → User Rules → Cmd+V"
+      else
+        echo "→ Clipboard unavailable. Paste manually from: $rules_file"
+      fi
+      ;;
+    3)
+      ${EDITOR:-vi} "$rules_file"
+      ;;
+    4)
+      ;;
+  esac
+}
+
+cursor_merge_hooks_json() {
+  local target="$1"
+  local our_hooks_json="$2"
+  local merged
+  if [ -f "$target" ]; then
+    merged=$(jq --slurpfile new <(echo "$our_hooks_json") '
+      . as $existing |
+      (.version // 1) as $ver |
+      reduce ($new[0].hooks | keys[]) as $evt (
+        $existing;
+        .version = $ver
+        | .hooks //= {}
+        | .hooks[$evt] = (
+            ((.hooks[$evt] // []) | map(select((._mb_owned // false) | not)))
+            + ($new[0].hooks[$evt])
+          )
+      )
+      | .hooks |= (to_entries | sort_by(.key) | from_entries)
+    ' "$target")
+  else
+    merged=$(echo "$our_hooks_json" | jq '.version = 1 | .hooks |= (to_entries | sort_by(.key) | from_entries)')
+  fi
+  # Events sorted: the same hooks.json whatever order an older version wrote.
+  echo "$merged" > "$target"
+}
+
+global_backup_if_exists() {
+  local target="$1"
+  local backup_list_name="$2"
+  local expected="${3:-}"
+  local old oldest backup
+  if [ -e "$target" ] || [ -L "$target" ]; then
+    if [ -n "$expected" ] && [ -f "$expected" ] && cmp -s "$target" "$expected"; then
+      return 2
+    fi
+    # I-250: a file our previous global install wrote, unedited since, is ours — no backup.
+    if [ -f "$target" ] && _mb_owned_unedited "$target" "$GLOBAL_MANIFEST"; then
+      rm -f -- "$target"
+      return 0
+    fi
+    # H-4: preserve the OLDEST backup (user's TRUE original) — prune only newer
+    # MB-generated backups; if an original already exists, re-record it and take
+    # no new backup instead of rotating the original away.
+    oldest=""
+    for old in "$target".pre-mb-backup.*; do
+      { [ -e "$old" ] || [ -L "$old" ]; } || continue
+      oldest="$old"; break
+    done
+    if [ -n "$oldest" ]; then
+      for old in "$target".pre-mb-backup.*; do
+        { [ -e "$old" ] || [ -L "$old" ]; } || continue
+        [ "$old" = "$oldest" ] && continue
+        rm -rf -- "$old"
+      done
+      eval "$backup_list_name+=(\"$target|$oldest\")"
+      return 0
+    fi
+    backup="$target.pre-mb-backup.$(date +%s).$$"
+    mv "$target" "$backup"
+    eval "$backup_list_name+=(\"$target|$backup\")"
+  fi
+}
+
+global_install_file() {
+  local src="$1" dst="$2" files_list_name="$3" backups_list_name="$4"
+  mkdir -p "$(dirname "$dst")"
+  if [ -f "$dst" ] && cmp -s "$src" "$dst"; then
+    [[ "$dst" == *.sh ]] && chmod +x "$dst"
+    eval "$files_list_name+=(\"$dst\")"
+    return 0
+  fi
+  global_backup_if_exists "$dst" "$backups_list_name"
+  cp "$src" "$dst"
+  [[ "$dst" == *.sh ]] && chmod +x "$dst"
+  eval "$files_list_name+=(\"$dst\")"
+}
+
+# I-244: Cursor subagents (cursor.com/docs/agent/subagents) — user scope is
+# ~/.cursor/agents/*.md. Each role is rendered for Cursor (partials composed,
+# frontmatter reduced to name/description + the role's tier model). Cursor also
+# reads ~/.claude/agents/, but on a name clash `.cursor/` wins, so this copy
+# shadows the Claude-rendered one (whose `model: haiku` etc. are not Cursor
+# ids). Partials (`partial: true`) are never installed on their own.
+#
+# Tier model (AGR-074): these agents are global, so no project pipeline applies
+# at install time — the shipped default pipeline (cursor profile) is used, cost
+# from MB_COST, else its `cost`. `/mb config init --host cursor` re-renders them
+# from that project's pipeline (render-agents PIPELINE); the last render wins.
+cursor_render_agent() {  # $1 = agent source, $2 = pipeline (optional) → stdout
+  "${MB_PYTHON:-python3}" "$SKILL_DIR/scripts/mb-agent-render.py" "$1" --skill-dir "$SKILL_DIR" --host cursor \
+    --pipeline "${2:-$SKILL_DIR/references/pipeline.default.yaml}" ${MB_COST:+--cost "$MB_COST"}
+}
+
+cursor_agent_is_partial() {
+  head -5 "$1" | grep -qiE '^partial:[[:space:]]*true[[:space:]]*$'
+}
+
+cursor_install_global_agents() {
+  local files_list_name="$1" backups_list_name="$2" f rendered
+  for f in "$SKILL_DIR"/agents/*.md; do
+    [ -f "$f" ] || continue
+    cursor_agent_is_partial "$f" && continue
+    rendered="$(mktemp)"
+    cursor_render_agent "$f" > "$rendered" || { rm -f "$rendered"; return 1; }
+    global_install_file "$rendered" "$GLOBAL_AGENTS_DIR/$(basename "$f")" "$files_list_name" "$backups_list_name"
+    rm -f "$rendered"
+  done
+}
+
+# Re-render the installed global agents in place (they are ours: manifest-tracked
+# by install-global, so no backup). Nothing is installed when install-global never ran.
+cursor_render_global_agents() {
+  local pipeline="${1:-}" f dst rendered n=0
+  if [ ! -f "$GLOBAL_MANIFEST" ]; then
+    echo "[cursor-adapter] global agents not installed (run install-global); nothing rendered"
+    return 0
+  fi
+  for f in "$SKILL_DIR"/agents/*.md; do
+    [ -f "$f" ] || continue
+    cursor_agent_is_partial "$f" && continue
+    dst="$GLOBAL_AGENTS_DIR/$(basename "$f")"
+    [ -f "$dst" ] || continue
+    rendered="$(mktemp "$GLOBAL_AGENTS_DIR/.mb-render.XXXXXX")"
+    cursor_render_agent "$f" "$pipeline" > "$rendered" || { rm -f "$rendered"; return 1; }
+    if cmp -s "$rendered" "$dst"; then rm -f "$rendered"; else mv "$rendered" "$dst"; fi
+    n=$((n + 1))
+  done
+  echo "[cursor-adapter] agents re-rendered: $n ($GLOBAL_AGENTS_DIR)"
+}
+
+# Short host header + the compact rules core with Cursor paths. The Key rules block
+# above it is written by install.sh Step 5.5 (mb-rules.sh sync --scope=user);
+# detailed rules stay in the skill's rules/RULES.md (AGR-063, AGR-066).
+global_cursor_agents_section() {
+  cat <<EOF
+$CURSOR_START_MARKER
+
+# Memory Bank — Cursor Global Entry Point
+
+Skill: \`~/.cursor/skills/memory-bank/SKILL.md\`; commands: \`~/.cursor/commands/\`.
+- Subagents: \`~/.cursor/agents/mb-*.md\` — dispatch by name through the Task tool.
+- Hooks: \`~/.cursor/skills/memory-bank/hooks/\`, wired via \`~/.cursor/hooks.json\`.
+- User Rules (Settings → Rules) have no file API: paste \`~/.cursor/memory-bank-user-rules.md\` once.
+
+EOF
+  sed 's#~/.claude/RULES.md#~/.cursor/skills/memory-bank/rules/RULES.md#g; s#~/.claude/skills/memory-bank#~/.cursor/skills/memory-bank#g' "$SKILL_DIR/rules/CLAUDE-GLOBAL.md"
+  printf '\n%s\n' "$CURSOR_END_MARKER"
+}
+
+# Hash of the rendered section: the manifest stores it so install.sh re-runs
+# install-global when the section text changes on the same VERSION.
+global_cursor_section_sha() {
+  global_cursor_agents_section | cksum | awk '{print $1 "-" $2}'
+}
+
+# ═══ Install ═══
+install_cursor() {
+  adapter_require_jq "cursor-adapter" || exit 1
+  mkdir -p "$CURSOR_DIR/rules"
+
+  local skill_hooks_dir
+  skill_hooks_dir="$(cursor_resolve_skill_hooks_dir)" || {
+    echo "[cursor-adapter] cannot resolve skill hooks directory" >&2
+    exit 1
+  }
+
+  # 1. Rules file (.mdc with YAML frontmatter) — A23: back up any pre-existing
+  # same-named user file before the whole-file overwrite below.
+  _cursor_backup_once "$RULES_FILE"
+  {
+    echo '---'
+    echo 'description: "Memory Bank — long-term project memory, workflow, and dev rules"'
+    echo 'alwaysApply: true'
+    echo '---'
+    echo ''
+    # Cursor also reads the root AGENTS.md: when it already carries the Key
+    # rules block, the .mdc keeps only the MB pointers (no duplicate rules).
+    # Otherwise the project delta: ~/.cursor/AGENTS.md carries the full block.
+    if grep -qF -- "$MB_KR_START" "$PROJECT_ROOT/AGENTS.md" 2>/dev/null; then
+      mb_rule_file_body "$SKILL_DIR" "$PROJECT_ROOT" 0
+    else
+      mb_rule_file_body "$SKILL_DIR" "$PROJECT_ROOT" 1 delta
+    fi
+  } > "$RULES_FILE"
+
+  # 2. Verify bundled hook scripts exist
+  local h
+  for h in "${MB_HOOKS[@]}"; do
+    if [ ! -f "$skill_hooks_dir/$h" ]; then
+      echo "[cursor-adapter] missing hook: $skill_hooks_dir/$h" >&2
+      exit 1
+    fi
+  done
+
+  # 3–4. Build + merge hooks.json (reference skill bundle, not local copies)
+  cursor_remove_legacy_hook_copies
+  local our_hooks_json
+  our_hooks_json=$(cursor_build_hooks_json "$skill_hooks_dir")
+  cursor_merge_hooks_json "$HOOKS_JSON" "$our_hooks_json"
+
+  # 5. Manifest (project-owned files + hook metadata)
+  local files_json events_json extra_json backups_json
+  files_json=$(printf '%s\n' "$RULES_FILE" | adapter_json_array_from_lines)
+  events_json=$(cursor_binding_events_json)
+  if [ "${#MB_CURSOR_BACKUPS[@]}" -gt 0 ]; then
+    backups_json=$(printf '%s\n' "${MB_CURSOR_BACKUPS[@]}" | adapter_json_array_from_lines)
+  else
+    backups_json='[]'
+  fi
+  extra_json=$(jq -n \
+    --argjson events "$events_json" \
+    --arg bundle "$skill_hooks_dir" \
+    --argjson backups "$backups_json" \
+    --argjson platform_limited "$(cursor_platform_limited_json)" \
+    --argjson platform_limited_notes "$(cursor_platform_limited_notes_json)" \
+    '{hooks_events: $events, hooks_bundle: $bundle, backups: $backups, platform_limited: $platform_limited, platform_limited_notes: $platform_limited_notes}')
+
+  adapter_write_manifest \
+    "$MANIFEST" \
+    "cursor" \
+    "$(cat "$SKILL_DIR/VERSION" 2>/dev/null || echo unknown)" \
+    "$files_json" \
+    "$extra_json"
+
+  echo "[cursor-adapter] installed to $PROJECT_ROOT"
+}
+
+# ═══ Uninstall ═══
+uninstall_cursor() {
+  if [ ! -f "$MANIFEST" ]; then
+    echo "[cursor-adapter] no manifest found, nothing to uninstall"
+    return 0
+  fi
+  adapter_require_jq "cursor-adapter" || exit 1
+
+  # 1. Strip our-owned entries from hooks.json before removing project files
+  if [ -f "$HOOKS_JSON" ]; then
+    local events
+    events=$(jq -r '.hooks_events[]?' "$MANIFEST")
+    local cleaned="$HOOKS_JSON.tmp"
+    cp "$HOOKS_JSON" "$cleaned"
+    local evt
+    while IFS= read -r evt; do
+      [ -z "$evt" ] && continue
+      jq --arg e "$evt" '
+        .hooks[$e] = ((.hooks[$e] // []) | map(select((._mb_owned // false) | not)))
+        | if (.hooks[$e] | length) == 0 then del(.hooks[$e]) else . end
+      ' "$cleaned" > "$cleaned.2" && mv "$cleaned.2" "$cleaned"
+    done <<< "$events"
+
+    # If hooks.json now has no hooks left AND we created it (no user content) → delete
+    local remaining
+    remaining=$(jq '.hooks | length' "$cleaned")
+    if [ "$remaining" -eq 0 ]; then
+      rm -f "$HOOKS_JSON" "$cleaned"
+    else
+      mv "$cleaned" "$HOOKS_JSON"
+    fi
+  fi
+
+  # 2. Remove project-owned files from manifest
+  adapter_remove_manifest_files "$MANIFEST"
+
+  # 3. Remove manifest itself
+  rm -f "$MANIFEST"
+
+  # 4. Clean up empty dirs
+  rmdir "$HOOKS_DIR" 2>/dev/null || true
+  rmdir "$CURSOR_DIR/rules" 2>/dev/null || true
+  rmdir "$CURSOR_DIR" 2>/dev/null || true
+
+  echo "[cursor-adapter] uninstalled from $PROJECT_ROOT"
+}
+
+install_cursor_global() {
+  adapter_require_jq "cursor-adapter" || exit 1
+  mkdir -p "$GLOBAL_CURSOR_DIR" "$GLOBAL_COMMANDS_DIR"
+
+  local managed_files=()
+  local backups=()
+  local h f tmp files_json events_json backups_json our_hooks_json skill_hooks_dir
+
+  skill_hooks_dir="$(cursor_resolve_skill_hooks_dir)" || {
+    echo "[cursor-adapter] cannot resolve skill hooks directory" >&2
+    exit 1
+  }
+  for h in "${MB_HOOKS[@]}"; do
+    if [ ! -f "$skill_hooks_dir/$h" ]; then
+      echo "[cursor-adapter] missing hook: $skill_hooks_dir/$h" >&2
+      exit 1
+    fi
+  done
+  cursor_remove_legacy_hook_copies
+
+  for f in "$SKILL_DIR"/commands/*.md; do
+    [ -f "$f" ] || continue
+    global_install_file "$f" "$GLOBAL_COMMANDS_DIR/$(basename "$f")" managed_files backups
+  done
+
+  cursor_install_global_agents managed_files backups
+
+  our_hooks_json=$(cursor_build_hooks_json "$skill_hooks_dir")
+  cursor_merge_hooks_json "$GLOBAL_HOOKS_JSON" "$our_hooks_json"
+
+  if [ -f "$GLOBAL_AGENTS_FILE" ] && grep -q "$CURSOR_START_MARKER" "$GLOBAL_AGENTS_FILE" 2>/dev/null; then
+    tmp="$GLOBAL_AGENTS_FILE.tmp"
+    awk -v s="$CURSOR_START_MARKER" -v e="$CURSOR_END_MARKER" '
+      BEGIN { inside=0 }
+      index($0, s) { inside=1; next }
+      index($0, e) { inside=0; next }
+      !inside { print }
+    ' "$GLOBAL_AGENTS_FILE" > "$tmp"
+    {
+      cat "$tmp"
+      printf '\n'
+      global_cursor_agents_section
+    } > "$GLOBAL_AGENTS_FILE"
+    rm -f "$tmp"
+  elif [ -f "$GLOBAL_AGENTS_FILE" ]; then
+    {
+      printf '\n'
+      global_cursor_agents_section
+    } >> "$GLOBAL_AGENTS_FILE"
+  else
+    global_cursor_agents_section > "$GLOBAL_AGENTS_FILE"
+  fi
+  localize_file_with_language "$GLOBAL_AGENTS_FILE" "$CURSOR_START_MARKER"
+
+  local mb_version
+  mb_version="$(cat "$SKILL_DIR/VERSION" 2>/dev/null || echo unknown)"
+  tmp="$(mktemp)"
+  {
+    printf '%s\n' "<!-- memory-bank:start v${mb_version} -->"
+    cat <<'EOF'
+# Memory Bank — User Rules (paste into Cursor → Settings → Rules → User Rules)
+
+> Cursor does not expose a file API for global User Rules.
+> Copy this file manually: Settings → Rules → User Rules → paste (Cmd+V).
+
+EOF
+    cat "$SKILL_DIR/rules/CLAUDE-GLOBAL.md"
+    printf '\n%s\n' "<!-- memory-bank:end -->"
+  } > "$tmp"
+  localize_file_with_language "$tmp"
+  if [ -f "$GLOBAL_USER_RULES_FILE" ] && cmp -s "$tmp" "$GLOBAL_USER_RULES_FILE"; then
+    rm -f "$tmp"
+  else
+    # Our generated paste-file (uninstall removes it by name): no backup (I-250).
+    mv "$tmp" "$GLOBAL_USER_RULES_FILE"
+  fi
+
+  files_json=$(printf '%s\n' ${managed_files[@]+"${managed_files[@]}"} | adapter_json_array_from_lines)
+  events_json=$(cursor_binding_events_json)
+  backups_json=$(printf '%s\n' ${backups[@]+"${backups[@]}"} | adapter_json_array_from_lines)
+  extra_json=$(jq -n \
+    --arg scope "global" \
+    --arg lang "${MB_LANGUAGE:-en}" \
+    --arg section_sha "$(global_cursor_section_sha)" \
+    --argjson events "$events_json" \
+    --argjson backups "$backups_json" \
+    --arg bundle "$skill_hooks_dir" \
+    --argjson platform_limited "$(cursor_platform_limited_json)" \
+    --argjson platform_limited_notes "$(cursor_platform_limited_notes_json)" \
+    '{scope: $scope, lang: $lang, section_sha: $section_sha, hooks_events: $events, backups: $backups, hooks_bundle: $bundle, platform_limited: $platform_limited, platform_limited_notes: $platform_limited_notes}')
+
+  adapter_write_manifest \
+    "$GLOBAL_MANIFEST" \
+    "cursor-global" \
+    "$(cat "$SKILL_DIR/VERSION" 2>/dev/null || echo unknown)" \
+    "$files_json" \
+    "$extra_json"
+
+  echo "[cursor-adapter] global install completed"
+  echo "[cursor-adapter] User Rules paste-file: $GLOBAL_USER_RULES_FILE"
+  prompt_user_rules_install "$GLOBAL_USER_RULES_FILE"
+}
+
+uninstall_cursor_global() {
+  if [ ! -f "$GLOBAL_MANIFEST" ]; then
+    echo "[cursor-adapter] no global manifest found, nothing to uninstall"
+    return 0
+  fi
+  adapter_require_jq "cursor-adapter" || exit 1
+
+  adapter_remove_manifest_files "$GLOBAL_MANIFEST"
+
+  if [ -f "$GLOBAL_HOOKS_JSON" ]; then
+    local events cleaned evt remaining
+    events=$(jq -r '.hooks_events[]?' "$GLOBAL_MANIFEST")
+    cleaned="$GLOBAL_HOOKS_JSON.tmp"
+    cp "$GLOBAL_HOOKS_JSON" "$cleaned"
+    while IFS= read -r evt; do
+      [ -z "$evt" ] && continue
+      jq --arg e "$evt" '
+        .hooks[$e] = ((.hooks[$e] // []) | map(select((._mb_owned // false) | not)))
+        | if (.hooks[$e] | length) == 0 then del(.hooks[$e]) else . end
+      ' "$cleaned" > "$cleaned.2" && mv "$cleaned.2" "$cleaned"
+    done <<< "$events"
+    remaining=$(jq '.hooks | length' "$cleaned")
+    if [ "$remaining" -eq 0 ]; then
+      rm -f "$GLOBAL_HOOKS_JSON" "$cleaned"
+    else
+      mv "$cleaned" "$GLOBAL_HOOKS_JSON"
+    fi
+  fi
+
+  [ -f "$GLOBAL_AGENTS_FILE" ] && grep -q "$CURSOR_START_MARKER" "$GLOBAL_AGENTS_FILE" 2>/dev/null && run_texttool strip-between-markers --path "$GLOBAL_AGENTS_FILE" --start-marker "$CURSOR_START_MARKER" --end-marker "$CURSOR_END_MARKER" 2>/dev/null || true
+
+  [ -f "$GLOBAL_USER_RULES_FILE" ] && rm -f "$GLOBAL_USER_RULES_FILE"
+
+  local bp orig bak
+  while IFS= read -r bp; do
+    [ -n "$bp" ] || continue
+    echo "$bp" | grep -q '|' || continue
+    orig="${bp%%|*}"
+    bak="${bp##*|}"
+    if [ -e "$bak" ] || [ -L "$bak" ]; then
+      mv "$bak" "$orig"
+    fi
+  done < <(jq -r '.backups[]?' "$GLOBAL_MANIFEST")
+
+  rm -f "$GLOBAL_MANIFEST"
+  rmdir "$GLOBAL_HOOKS_DIR" 2>/dev/null || true
+  rmdir "$GLOBAL_COMMANDS_DIR" 2>/dev/null || true
+  rmdir "$GLOBAL_AGENTS_DIR" 2>/dev/null || true
+  rmdir "$GLOBAL_CURSOR_DIR" 2>/dev/null || true
+
+  echo "[cursor-adapter] global uninstall completed"
+}
+
+case "$ACTION" in
+  install)   install_cursor ;;
+  uninstall) uninstall_cursor ;;
+  install-global) install_cursor_global ;;
+  uninstall-global) uninstall_cursor_global ;;
+  render-agents) cursor_render_global_agents "${2:-}" ;;
+  section-sha) global_cursor_section_sha ;;
+  *)
+    echo "Usage: $0 install|uninstall [PROJECT_ROOT] | install-global|uninstall-global | render-agents [PIPELINE] | section-sha" >&2
+    exit 1
+    ;;
+esac
+
+adapter_contract_require_functions install_cursor uninstall_cursor >/dev/null

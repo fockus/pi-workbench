@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+# mb-rules-check.sh — deterministic rules enforcement dispatcher.
+#
+# Usage:
+#   mb-rules-check.sh --files <csv> [--diff-files <csv>] [--out json|human|both]
+#                     [--srp-threshold <N>] [--profile <path>] [--base <git-ref>]
+#   --base: SRP is CRITICAL only for files this change pushed over the threshold.
+#
+# Rules implemented:
+#   - solid/srp
+#   - clean_arch/direction
+#   - tdd/delta
+#   - stack.go.context-propagation
+#   - stack.go.goroutine-context
+#   - stack.python.type-hints
+#   - stack.python.no-business-mocks
+#   - stack.typescript.no-any
+#   - stack.javascript.strict-equality
+#   - architecture.fsd.import-direction
+#   - architecture.<name>.* for presets with a "check" block (mb_rules_check_arch.sh)
+
+# shellcheck disable=SC1091,SC2034
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# shellcheck source=_lib.sh
+source "$SCRIPT_DIR/_lib.sh"
+# shellcheck source=mb_rules_check_lib.sh
+source "$SCRIPT_DIR/mb_rules_check_lib.sh"
+# shellcheck source=mb_rules_check_profile.sh
+source "$SCRIPT_DIR/mb_rules_check_profile.sh"
+# shellcheck source=mb_rules_check_baseline.sh
+source "$SCRIPT_DIR/mb_rules_check_baseline.sh"
+# shellcheck source=mb_rules_check_stack.sh
+source "$SCRIPT_DIR/mb_rules_check_stack.sh"
+# shellcheck source=mb_rules_check_arch.sh
+source "$SCRIPT_DIR/mb_rules_check_arch.sh"
+
+FILES_CSV=""
+DIFF_CSV=""
+OUT="json"
+SRP_THRESHOLD="${MB_SRP_THRESHOLD:-300}"
+BASE_REF=""
+PROFILE_PATH="${MB_PROFILE:-}"
+PLACEHOLDERS_ONLY=0
+
+print_help() {
+  sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --files) FILES_CSV="${2:-}"; shift 2 ;;
+    --diff-files) DIFF_CSV="${2:-}"; shift 2 ;;
+    --out) OUT="${2:-json}"; shift 2 ;;
+    --srp-threshold) SRP_THRESHOLD="${2:-300}"; shift 2 ;;
+    --base) BASE_REF="${2:-}"; shift 2 ;;
+    --profile) PROFILE_PATH="${2:-}"; shift 2 ;;
+    --placeholders-only) PLACEHOLDERS_ONLY=1; shift ;;
+    --help|-h) print_help; exit 0 ;;
+    *) printf 'unknown arg: %s\n' "$1" >&2; exit 2 ;;
+  esac
+done
+
+_bank="$(bash -c 'source "$1/_lib.sh" && mb_resolve_path ""' _ "$SCRIPT_DIR" 2>/dev/null || true)"
+# Without --profile the project layer is the resolved bank's rules-profile.json (AGR-076).
+if [[ -z "$PROFILE_PATH" ]]; then
+  [[ -n "$_bank" && -f "$_bank/rules-profile.json" ]] && PROFILE_PATH="$_bank/rules-profile.json"
+fi
+# Rules text the enforcer/verifier judge against: the project's root RULES.md, then the bank copy, then the
+# bundled canon. Reported as `rules_source` so every caller reads the same file; the bundled canon is the
+# stable label `bundled:rules/RULES.md` (relative to the skill root), so the output does not depend on the host.
+_bank_abs="$( [[ -n "$_bank" && -d "$_bank" ]] && cd "$_bank" && pwd || true)"
+_project="$PWD"
+[[ "$(basename "${_bank_abs:-x}")" == ".memory-bank" ]] && _project="$(dirname "$_bank_abs")"
+RULES_SOURCE="bundled:rules/RULES.md"
+for _rules in "$_project/RULES.md" "${_bank_abs:+$_bank_abs/RULES.md}"; do
+  [[ -n "$_rules" && -f "$_rules" ]] && { RULES_SOURCE="$_rules"; break; }
+done
+
+case "$OUT" in
+  json|human|both) ;;
+  *) printf 'invalid --out: %s (allowed: json|human|both)\n' "$OUT" >&2; exit 2 ;;
+esac
+
+START_MS="$(now_ms)"
+VIOLATIONS=()
+CHECKS_RUN=0
+FILES=()
+DIFF_FILES=()
+
+split_csv "$FILES_CSV" FILES
+split_csv "$DIFF_CSV" DIFF_FILES
+
+# --placeholders-only: scan-only mode (§5 gate 3). Skip the structural/profile
+# suite entirely; scan FILES[] for placeholder markers. Exit 1 on any hit.
+if [[ "$PLACEHOLDERS_ONLY" -eq 1 ]]; then
+  PLACEHOLDER_HITS=0
+  scan_placeholders
+  END_MS="$(now_ms)"
+  DURATION=$((END_MS - START_MS))
+  PROFILE_JSON='{"role":"backend","stack":"generic","architecture":"clean","delivery":"tdd","strictness":"block","sources":{},"prompt_summary":""}'
+  case "$OUT" in
+    json) emit_json ;;
+    human) emit_human ;;
+    both) emit_human; emit_json ;;
+  esac
+  [[ "$PLACEHOLDER_HITS" -gt 0 ]] && exit 1
+  exit 0
+fi
+
+load_profile
+PROFILE_STACK="$(profile_field stack)"
+load_quality
+PROFILE_STRICTNESS="$(profile_field strictness)"
+
+check_srp
+check_clean_arch
+check_tdd_delta
+
+case "$PROFILE_STACK" in
+  go) check_stack_go ;;
+  python) check_stack_python ;;
+  typescript) check_stack_typescript ;;
+  javascript) check_stack_javascript ;;
+esac
+
+for arch in $ARCH_NAMES; do
+  case "$arch" in
+    fsd) check_arch_fsd ;;
+    *) check_arch_preset "$arch" ;;
+  esac
+done
+
+END_MS="$(now_ms)"
+DURATION=$((END_MS - START_MS))
+
+EXIT_CODE=0
+if [[ "$PROFILE_STRICTNESS" == "block" ]]; then
+  for v in "${VIOLATIONS[@]+"${VIOLATIONS[@]}"}"; do
+    if [[ "$v" == *'"severity":"CRITICAL"'* ]]; then
+      EXIT_CODE=1
+      break
+    fi
+  done
+fi
+
+case "$OUT" in
+  json) emit_json ;;
+  human) emit_human ;;
+  both) emit_human; emit_json ;;
+esac
+
+exit "$EXIT_CODE"

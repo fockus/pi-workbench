@@ -1,0 +1,183 @@
+#!/usr/bin/env bash
+# mb-work-protected-check.sh — match files against pipeline.yaml:protected_paths.
+#
+# Usage:
+#   mb-work-protected-check.sh <file> [<file> ...] [--mb <path>]
+#
+# Exit codes:
+#   0  no file matches any protected glob
+#   1  at least one file matches (matches reported on stderr)
+#   2  usage / config error
+
+set -eu
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PIPELINE="$SCRIPT_DIR/mb-pipeline.sh"
+
+# shellcheck source=_lib.sh
+source "$SCRIPT_DIR/_lib.sh"
+
+MB_ARG=""
+files=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --mb) MB_ARG="${2:-}"; shift 2 ;;
+    --mb=*) MB_ARG="${1#--mb=}"; shift ;;
+    -h|--help) sed -n '2,12p' "$0" >&2; exit 0 ;;
+    *) files+=("$1"); shift ;;
+  esac
+done
+
+if [ "${#files[@]}" -eq 0 ]; then
+  exit 0
+fi
+
+PIPELINE_PATH=$(bash "$PIPELINE" path "$MB_ARG" 2>/dev/null || true)
+if [ -z "$PIPELINE_PATH" ]; then
+  PIPELINE_PATH="$SCRIPT_DIR/../references/pipeline.default.yaml"
+fi
+
+PIPELINE_YAML="$PIPELINE_PATH" python3 - "${files[@]}" <<'PY'
+import os
+import re
+import sys
+
+def strip_comment(line: str) -> str:
+    in_single = False
+    in_double = False
+    for idx, char in enumerate(line):
+        if char == "'" and not in_double:
+            in_single = not in_single
+        elif char == '"' and not in_single:
+            in_double = not in_double
+        elif char == "#" and not in_single and not in_double:
+            return line[:idx]
+    return line
+
+
+def parse_scalar(value: str) -> str:
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        return value[1:-1]
+    return value
+
+
+def parse_protected_paths_without_yaml(path: str) -> list[str]:
+    globs: list[str] = []
+    in_section = False
+    section_indent = 0
+    for raw in open(path, encoding="utf-8"):
+        line = strip_comment(raw).rstrip()
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip())
+        stripped = line.strip()
+        if not in_section:
+            if stripped == "protected_paths:":
+                in_section = True
+                section_indent = indent
+            continue
+        if indent <= section_indent and not stripped.startswith("-"):
+            break
+        if stripped.startswith("- "):
+            globs.append(parse_scalar(stripped[2:]))
+    return globs
+
+
+pipeline_path = os.environ["PIPELINE_YAML"]
+try:
+    import yaml  # type: ignore
+except ImportError:
+    globs = parse_protected_paths_without_yaml(pipeline_path)
+else:
+    try:
+        cfg = yaml.safe_load(open(pipeline_path, encoding="utf-8")) or {}
+        globs = cfg.get("protected_paths") or []
+        if not isinstance(globs, list):
+            sys.stderr.write("[protected] protected_paths must be a list\n")
+            sys.exit(2)
+    except Exception as exc:
+        sys.stderr.write(f"[protected] failed to load pipeline.yaml: {exc}\n")
+        sys.exit(2)
+
+# Convert each glob to a regex.
+# Rules: `**` → match any path segments (including separators);
+#        `*`  → match any character except `/`;
+#        `?`  → match a single char except `/`.
+def glob_to_regex(g: str) -> re.Pattern:
+    out = ["^"]
+    i = 0
+    while i < len(g):
+        c = g[i]
+        if c == "*":
+            if i + 1 < len(g) and g[i + 1] == "*":
+                # `**` — match any number of path segments
+                out.append(".*")
+                i += 2
+                if i < len(g) and g[i] == "/":
+                    i += 1  # consume trailing slash; .* covers it
+                continue
+            out.append("[^/]*")
+        elif c == "?":
+            out.append("[^/]")
+        elif c in r".\+()|^$[]{}":
+            out.append("\\" + c)
+        else:
+            out.append(c)
+        i += 1
+    out.append("$")
+    return re.compile("".join(out))
+
+regexes = [(g, glob_to_regex(g)) for g in globs]
+
+def repo_relative(path: str) -> str:
+    if not path:
+        return path
+    try:
+        abs_path = os.path.realpath(path)
+    except Exception:
+        abs_path = path
+    repo_root = None
+    start = abs_path if os.path.isdir(abs_path) else os.path.dirname(abs_path)
+    probe = start
+    for _ in range(32):
+        if os.path.isdir(os.path.join(probe, ".git")):
+            repo_root = probe
+            break
+        parent = os.path.dirname(probe)
+        if parent == probe:
+            break
+        probe = parent
+    if repo_root:
+        rel = os.path.relpath(abs_path, repo_root).replace("\\", "/")
+        if not rel.startswith(".."):
+            return rel
+    return os.path.basename(abs_path)
+
+
+def path_matches(f: str, g: str, rx: re.Pattern) -> bool:
+    if rx.match(f) or rx.match(os.path.basename(f)):
+        return True
+    rel = repo_relative(f)
+    if rel and rx.match(rel):
+        return True
+    return False
+
+
+matched = []
+files = sys.argv[1:]
+for f in files:
+    if not f:
+        continue
+    for g, rx in regexes:
+        if path_matches(f, g, rx):
+            matched.append((f, g))
+            break
+
+if matched:
+    for f, g in matched:
+        sys.stderr.write(f"[protected] {f} matches {g}\n")
+    sys.exit(1)
+
+sys.exit(0)
+PY

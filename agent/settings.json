@@ -1,0 +1,37 @@
+{
+  "lastChangelogVersion": "1.5.0",
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-5.5",
+  "skills": [
+    "~/.pi/agent/skills/memory-bank",
+    "!~/.agents/skills/build/skills/kaizen-*",
+    "!~/.agents/skills/build/skills/reflexion-*",
+    "!~/.agents/skills/build/skills/sadd-*",
+    "!~/.agents/skills/build/skills/sdd-*",
+    "!~/.agents/skills/claude-code-harness/skills/*",
+    "!~/.agents/skills/claude-code-harness/skills-v3/*",
+    "!~/.agents/skills/claude-code-harness/skills-v3-codex/*",
+    "!~/.agents/skills/find-skill"
+  ],
+  "defaultThinkingLevel": "xhigh",
+  "defaultTools": [
+    "+codemode",
+    "+tool_search"
+  ],
+  "packages": [
+    "npm:@tintinweb/pi-subagents@0.23.0",
+    "npm:@tintinweb/pi-tasks@0.9.1",
+    "npm:pi-supervisor@0.5.0",
+    "npm:pi-schedule-prompt@0.4.1",
+    "npm:pi-gitnexus@0.6.4",
+    "npm:pi-lens@4.4.8",
+    "npm:@aliou/pi-processes@0.13.3",
+    "npm:pi-inspect@0.6.0",
+    "npm:pi-interactive-shell@0.18.0",
+    "npm:@juicesharp/rpiv-web-tools@2.15.0",
+    "npm:pi-condense@2.13.1"
+  ],
+  "tuiMode": "fullscreen",
+  "showHardwareCursor": true,
+  "theme": "dark"
+}

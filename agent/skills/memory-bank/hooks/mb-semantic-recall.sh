@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# mb-semantic-recall.sh — UserPromptSubmit: inject semantically relevant past-chat snippets.
+# Injects the COMPACT recall form (id · age · summary · source) — the ~10× token saving over
+# full chunk bodies. Fail-safe: any problem → print {} and exit 0; never block the prompt.
+set -u
+exec 2>/dev/null
+[ -n "${MB_CAPTURE_SUBPROCESS:-}" ] && { printf '{}\n'; exit 0; }
+[ "${MB_SEMANTIC:-auto}" = "off" ] && { printf '{}\n'; exit 0; }
+
+HOOK_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)" || { printf '{}\n'; exit 0; }
+. "$HOOK_DIR/lib/session-common.sh" 2>/dev/null || { printf '{}\n'; exit 0; }
+JQ="${JQ:-jq}"; command -v "$JQ" >/dev/null 2>&1 || { printf '{}\n'; exit 0; }
+
+INPUT="$(cat 2>/dev/null || true)"
+PROMPT="$(printf '%s' "$INPUT" | "$JQ" -r '.prompt // empty' 2>/dev/null)"
+CWD="$(printf '%s' "$INPUT" | "$JQ" -r '.cwd // empty' 2>/dev/null)"; [ -n "$CWD" ] || CWD="$PWD"
+[ -n "$PROMPT" ] || { printf '{}\n'; exit 0; }
+
+# I-132: gate noisy prompts BEFORE any python spawn. Slash-commands and short
+# imperatives ("fix it") are commands, not questions — a search process for
+# them is pure cost. MB_SEMANTIC_MIN_PROMPT=0 disables the length gate.
+case "$PROMPT" in "/"*) printf '{}\n'; exit 0 ;; esac
+# Harness-generated turns (task notifications, reminders, local-command echoes) are not
+# the user's question; searching on them returns other notifications.
+case "${PROMPT#"${PROMPT%%[![:space:]]*}"}" in
+  "<task-notification>"*|"<system-reminder>"*|"<local-command"*|"[SYSTEM NOTIFICATION"*)
+    printf '{}\n'; exit 0 ;;
+esac
+MIN="${MB_SEMANTIC_MIN_PROMPT:-24}"
+[ "${#PROMPT}" -ge "$MIN" ] 2>/dev/null || { printf '{}\n'; exit 0; }
+
+# Query = prompt minus fenced code blocks (pasted code is noise for recall),
+# capped so a giant paste never becomes a giant argv.
+QUERY="$(printf '%s' "$PROMPT" | awk '/^```/{f=!f;next} !f' | head -c 500)"
+[ -n "$QUERY" ] || QUERY="$(printf '%s' "$PROMPT" | head -c 500)"
+
+MB="$(sc_resolve_mb "$CWD")"; [ -n "$MB" ] || { printf '{}\n'; exit 0; }
+PY="$(sc_semantic_py "$HOOK_DIR" "$MB")"
+command -v "$PY" >/dev/null 2>&1 || { printf '{}\n'; exit 0; }
+
+# Time budget is enforced inside the CLI (portable; GNU timeout/gtimeout absent on macOS).
+# CLI lives beside this hook ($HOOK_DIR); MB_ROOT points it at this project's data.
+RESULT="$(MB_ROOT="$MB" "$PY" "$HOOK_DIR/mb-semantic.py" search "$QUERY" \
+          --top-k "${MB_SEMANTIC_TOPK:-3}" --min-score "${MB_SEMANTIC_MIN_SCORE:-0.35}" \
+          --timeout "${MB_SEMANTIC_TIMEOUT:-3}" --json 2>/dev/null || true)"
+[ -n "$RESULT" ] || { printf '{}\n'; exit 0; }
+printf '%s' "$RESULT" | "$JQ" -e 'type=="array"' >/dev/null 2>&1 || { printf '{}\n'; exit 0; }
+
+COUNT="$(printf '%s' "$RESULT" | "$JQ" 'length' 2>/dev/null || echo 0)"
+[ "$COUNT" -gt 0 ] 2>/dev/null || { printf '{}\n'; exit 0; }
+
+# Render the COMPACT index via the shared recall-index bridge (token-economical).
+# shellcheck disable=SC2016 # $mb/$sem are jq variables bound via --arg/--argjson.
+REQ="$("$JQ" -n --arg mb "$MB" --argjson sem "$RESULT" \
+       '{mb:$mb, mode:"inject", limit:5, semantic:$sem, lexical:[]}' 2>/dev/null)"
+[ -n "$REQ" ] || { printf '{}\n'; exit 0; }
+CTX="$(printf '%s' "$REQ" | "$PY" "$HOOK_DIR/lib/recall_index.py" 2>/dev/null || true)"
+[ -n "$CTX" ] || { printf '{}\n'; exit 0; }
+
+# shellcheck disable=SC2016 # $c is a jq variable bound via --arg, not a shell expansion.
+"$JQ" -n --arg c "$CTX" \
+  '{hookSpecificOutput:{hookEventName:"UserPromptSubmit",additionalContext:$c}}'
+exit 0

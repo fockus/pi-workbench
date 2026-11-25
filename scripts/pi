@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+repo=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+exec node "$repo/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js" "$@"

@@ -1,0 +1,22 @@
+{
+  "name": "pi-extensions",
+  "private": true,
+  "dependencies": {
+    "@aliou/pi-processes": "0.13.3",
+    "@juicesharp/rpiv-web-tools": "2.15.0",
+    "@tintinweb/pi-subagents": "0.23.0",
+    "@tintinweb/pi-tasks": "0.9.1",
+    "pi-condense": "2.13.1",
+    "pi-gitnexus": "0.6.4",
+    "pi-inspect": "0.6.0",
+    "pi-interactive-shell": "0.18.0",
+    "pi-lens": "4.4.8",
+    "pi-schedule-prompt": "0.4.1",
+    "pi-supervisor": "0.5.0"
+  },
+  "overrides": {
+    "pi-interactive-shell": {
+      "re2js": "2.8.7"
+    }
+  }
+}

@@ -1,0 +1,865 @@
+<div align="center">
+
+# memory-bank-skill
+
+**Memory, a work pipeline and agent teams for AI coding agents.**
+
+Your AI remembers the project between sessions, follows the same engineering rules,
+runs each task through a pipeline you dial by risk — alone, as parallel tracks, or
+hands-off toward a goal — and proves the result before it says "done".
+
+Claude Code · Cursor · Windsurf · Cline · Kilo · OpenCode · Codex · Pi Code · Hermes
+
+[![CI](https://img.shields.io/github/actions/workflow/status/fockus/skill-memory-bank/test.yml?branch=main&label=tests&style=flat-square&color=brightgreen&v=300)](https://github.com/fockus/skill-memory-bank/actions/workflows/test.yml)
+[![PyPI version](https://img.shields.io/pypi/v/memory-bank-skill?style=flat-square&color=brightgreen&label=pypi&v=300)](https://pypi.org/project/memory-bank-skill/)
+[![GitHub release](https://img.shields.io/github/v/release/fockus/skill-memory-bank?style=flat-square&color=brightgreen&label=release&v=300)](https://github.com/fockus/skill-memory-bank/releases/latest)
+[![Python versions](https://img.shields.io/pypi/pyversions/memory-bank-skill?style=flat-square&color=brightgreen&v=300)](https://pypi.org/project/memory-bank-skill/)
+[![Homebrew tap](https://img.shields.io/badge/homebrew-fockus%2Ftap-brightgreen?style=flat-square&v=300)](https://github.com/fockus/homebrew-tap)
+[![Downloads](https://img.shields.io/pypi/dm/memory-bank-skill?style=flat-square&color=brightgreen&v=300)](https://pypi.org/project/memory-bank-skill/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-brightgreen?style=flat-square&v=300)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/fockus/skill-memory-bank?style=social)](https://github.com/fockus/skill-memory-bank/stargazers)
+
+[Install](#install) · [Quick start](#5-minute-quick-start) · [Teams, goals, QA](#teams-goals-and-qa) · [What you get](#what-you-get) · [Code graph](#the-code-graph) · [Commands](#3-dev-workflow-commands) · [Cross-agent](#4-cross-agent-portability) · [FAQ](#faq) · [Docs](#documentation) · [Website](https://fockus.github.io/skill-memory-bank/)
+
+<a href="https://fockus.github.io/skill-memory-bank/"><img src="https://raw.githubusercontent.com/fockus/skill-memory-bank/main/site/og-image.png" alt="memory-bank-skill — memory, process and a team for AI coding agents" width="720"></a>
+
+</div>
+
+> **New in v5.4** — `/mb team` runs one task as parallel tracks in a shared tree, `/mb drive` drives a goal file to completion, `/mb qa` walks acceptance scenarios against the live product, and `/mb work` picks one of four presets (`simple · medium · complex · governed`) by task size. [CHANGELOG](CHANGELOG.md) · [Website](https://fockus.github.io/skill-memory-bank/)
+
+```bash
+pipx install memory-bank-skill && memory-bank install
+```
+
+```text
+# then, inside your agent:
+/mb init     # once per project
+/mb start    # every session — full context restored
+```
+
+| Slash commands | `/mb` sub-commands | Subagents | Agent hosts | Automated tests |
+|:--------------:|:------------------:|:---------:|:-----------:|:---------------:|
+| 39             | 45+                | 29        | 9           | 7,000+          |
+
+---
+
+## The problem it solves
+
+Every new AI coding session is amnesia: you re-explain the project, re-state the plan, re-list what's done — and context compaction erases whatever the agent finally learned. **memory-bank-skill** makes project memory a first-class citizen: a `.memory-bank/` directory next to your code that the agent reads at session start and updates as it works.
+
+```
+.memory-bank/
+├── status.md          ← where we are, what's next
+├── checklist.md       ← current tasks (✅ / ⬜)
+├── roadmap.md         ← priorities, direction
+├── agreements.md      ← confirmed decisions (AGR-NNN)
+├── goal.md            ← end state + acceptance criteria for `/mb drive`
+├── research.md        ← hypotheses log (H-NNN) + current experiment
+├── backlog.md         ← parking lot for ideas (I-NNN)
+├── adr.md             ← architecture decision records (ADR-NNN)
+├── progress.md        ← work log (append-only)
+├── lessons.md         ← mistakes not to repeat
+├── notes/             ← knowledge (5-15 line snippets)
+├── plans/             ← detailed plans per feature/fix
+├── briefs/ context/ specs/  ← brief → requirements → spec triple
+├── qa/                ← acceptance scenarios, run reports, bugs.md
+├── session/           ← every chat, searchable with `/mb recall`
+├── reports/           ← analysis, post-mortems, team briefs and track reports
+├── experiments/       ← EXP-NNN experiment artifacts
+└── codebase/          ← stack / architecture map (`/mb map`) + code graph (`/mb graph`)
+```
+
+This directory lives alongside your code (commit it, share it with your team, or `.gitignore` it — your call).
+
+---
+
+## Install
+
+Pick one:
+
+### Option 0: skills.sh CLI (fastest one-shot install)
+
+```bash
+npx skills add fockus/skill-memory-bank
+```
+
+Copies the skill bundle (SKILL.md + scripts + commands + agents) into your local skills directory. Use this for a quick single-host try-out (Claude Code, Cursor, or any host that reads `~/.claude/skills/` or `~/.cursor/skills/`). For cross-agent setup (Codex / Windsurf / OpenCode hooks, managed blocks in `AGENTS.md`, `memory-bank` CLI, hooks, slash commands globally installed), use Option 1 or 2 below.
+
+### Option 1: pipx (recommended, cross-platform)
+
+```bash
+pipx install memory-bank-skill           # stable
+# or, for the latest release candidate:
+pipx install --pip-args='--pre' memory-bank-skill
+
+# pipx only installs the CLI. Run this once to wire agents, rules, commands, and Pi prompts:
+memory-bank install                      # global install for Claude Code + Cursor + Codex + OpenCode + Pi
+# optional: pick installed rule language explicitly
+memory-bank install --language ru
+```
+
+**Requires:** Python 3.11+, `pipx`, `jq`, `git`, `bash` (3.2+; macOS ships one, Windows needs Git Bash/WSL — see [docs/install.md](docs/install.md)).
+
+### Option 2: Homebrew (macOS / Linuxbrew)
+
+```bash
+brew tap fockus/tap
+brew install memory-bank
+memory-bank install
+```
+
+### Option 2b: npx (Node 18+, Python 3.11+)
+
+```bash
+npx skill-memory-bank install
+```
+
+The npm package carries the same bundle as PyPI and keeps a copy in `~/.local/share/memory-bank-skill/npm/<version>/`.
+
+### Option 3: git clone (developers)
+
+```bash
+git clone https://github.com/fockus/skill-memory-bank.git ~/.claude/skills/skill-memory-bank
+cd ~/.claude/skills/skill-memory-bank
+./install.sh
+```
+
+### Add cross-agent support (Cursor, Windsurf, OpenCode, etc.)
+
+Three ways — pick whichever matches your workflow:
+
+**A. Interactive menu** (from any terminal — recommended if you're unsure which clients you want):
+
+```bash
+cd your-project/
+memory-bank install                     # multi-select prompt for all 8 clients
+# in TTY mode it will also ask which language to use for installed rules
+```
+
+**B. CLI flags** (scripts / CI / one-liner):
+
+```bash
+cd your-project/
+memory-bank install --clients claude-code,cursor,windsurf
+memory-bank install --clients claude-code,cursor --language en
+```
+
+**C. From inside an agent with command surface** (Claude Code / OpenCode):
+
+```
+/mb install                                 # interactive picker
+/mb install cursor,windsurf                 # direct
+/mb install all                             # every client
+```
+
+Claude Code/OpenCode can front this through `/mb install`, then run `memory-bank install --clients <selected>` for the current project. In Codex use the CLI directly; Codex gets global skill discovery plus `~/.codex/AGENTS.md` hints, not a native `/mb` command surface.
+
+Supported client names: `claude-code`, `cursor`, `windsurf`, `cline`, `kilo`, `opencode`, `pi`, `codex`.
+Supported languages: `en` (default), `ru`, `es`, `pt`, `zh`; code comments can use a different language (`--comments-language`), and one project can override both with `/mb language`. See [docs/i18n.md](docs/i18n.md). You can also set `MB_LANGUAGE=en|ru|es|pt|zh`.
+
+Full per-client details: [docs/cross-agent-setup.md](docs/cross-agent-setup.md).
+
+---
+
+## 5-minute quick start
+
+1. **Install** (see above).
+
+2. **Open your project** in your AI agent (Claude Code, Cursor, etc.) and run:
+
+   ```
+   /mb init
+   ```
+
+   This creates `.memory-bank/` with all the files above, detects your stack, and generates a `CLAUDE.md` (or equivalent) pointing the agent at the memory bank.
+
+3. **Every session starts with:**
+
+   ```
+   /mb start
+   ```
+
+   The agent loads `status.md`, `checklist.md`, `roadmap.md`, `research.md` — it knows exactly what you were working on and what comes next.
+
+4. **As you work:** the agent updates `checklist.md` (⬜ → ✅) whenever tasks finish.
+
+5. **Every session ends with:**
+
+   ```
+   /mb done
+   ```
+
+   This appends a session entry to `progress.md`, updates `status.md` if needed, writes a knowledge note if something interesting was learned.
+
+That's it. Rinse and repeat.
+
+### The core workflow: build a feature
+
+`init` / `start` / `done` are the session bookends. The actual feature work happens through a **plan or spec → `work` → `verify` → `done`** loop. Two entry points:
+
+**Plan-based** — for a well-understood change:
+```
+/mb plan feature "user avatar upload"   # scaffolds a staged plan with SMART DoD + TDD notes
+/mb work                                # executes the plan stage by stage (TDD → verify per stage)
+/mb verify                              # audits the diff against every DoD item — REQUIRED before done
+/mb done                                # closes the session, appends progress, writes a note
+```
+
+**Spec-driven (SDD)** — for a larger or fuzzier feature, add an interview + spec first. The full chain is `brief → discuss → sdd → work`:
+```
+/mb brief billing-overhaul --input PRD.md   # raw request + documents → validated one-pager in briefs/
+/mb discuss billing-overhaul            # 5-phase interview → EARS-validated context/billing-overhaul.md
+/mb sdd billing-overhaul                # generates specs/billing-overhaul/{requirements,design,tasks}.md
+/mb work billing-overhaul               # executes the tasks.md items (<!-- mb-task:N -->) in order
+/mb verify
+/mb done
+```
+
+Use one kebab-case slug for the whole feature (`billing-overhaul`, not `"billing overhaul"`) — `/mb discuss` uses the topic verbatim as the filename, so keeping it already-slugged makes every later command resolve to the same `context/` and `specs/` paths.
+
+`/mb work` runs **implement (TDD) → verify → done** by default — review is off, so it stays fast and cheap. `/mb verify` is **mandatory before `/mb done`** whenever the work followed a plan: it re-reads the plan and checks every DoD item against the real code, so you never close a stage that only *looks* finished.
+
+### Process scales with the task
+
+A typo does not get a ceremony and a payment flow does not get a shortcut. The agent sizes the task first; the size picks the path and the `/mb work` preset. An explicit request always beats the estimate — ask for a plan or a review and you get one.
+
+| Size | Signals | Path | `/mb work` preset |
+|------|---------|------|-------------------|
+| **trivial** | a typo, a config value, a rename | edit, then the one check that covers the line | — |
+| **small** | one feature in 1–3 files with a clear contract | inline, one test per stated behavior | `simple` — the implementer self-checks |
+| **standard** | several modules, an endpoint with storage, a refactor with callers | `/mb plan` → `/mb work` | `medium` (default) — one verifier pass at the end of the plan |
+| **large** | a new subsystem, unclear requirements | `/mb discuss` → `/mb sdd` → `/mb work` | `complex` — adds a reviewer and a bounded fix loop |
+| **extra** | security, money, user data, reliability — at any size | plan or spec, every gate | `governed` — verifier, five-lens review ensemble, independent judge |
+
+Details: [docs/flow.md](docs/flow.md) · [references/effort-tiers.md](references/effort-tiers.md).
+
+### Storage modes
+
+Memory Bank supports three ways to store your bank — pick the one that fits your workflow:
+
+**Local mode (default)**
+```bash
+/mb init                       # same as /mb init --storage=local
+```
+The bank lives in the repo at `.memory-bank/`. Commit it to share with your team, or add it to `.gitignore` for solo use. This is the default and recommended mode for team projects.
+
+**Global mode (opt-in personal storage)**
+```bash
+/mb init --storage=global --agent=claude-code   # for Claude Code
+/mb init --storage=global --agent=cursor         # for Cursor
+/mb init --storage=global --agent=codex          # for Codex
+```
+The bank lives outside the repo under `~/.<agent>/memory-bank/projects/<id>/.memory-bank`. It is personal storage and must **not** be committed to the project repo. Use this when you want persistent memory across sessions but don't want to touch the repository.
+
+**Rules-only mode (no init required)**
+
+You can intentionally skip `/mb init` entirely. In this state:
+- The agent prints `[MEMORY BANK: ABSENT]` — Memory Bank lifecycle commands (`/mb start`, `/mb done`, etc.) stay inactive.
+- **All engineering rules still apply**: TDD, SOLID, Clean Architecture, DRY/KISS/YAGNI, Testing Trophy, protected files, no placeholders. The installed global rules (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, etc.) are always-on.
+- Run `/mb init` at any point to activate Memory Bank without losing any code.
+
+Existing local bank users can stay on local mode — there is no forced migration.
+
+### Rule profiles & stack presets
+
+Personalize the configurable rules layer without weakening the immutable safety baseline (TDD, no placeholders, protected files, destructive-confirm, fail-fast, DRY/KISS/YAGNI, verification before completion — these cannot be disabled by any profile).
+
+```bash
+# User-global profile (works even without a project Memory Bank):
+mb-profile.sh init --scope=user --role=backend --stack=go --architecture=microservices --delivery=contract-first
+
+# Project profile (stored in .memory-bank/ or global bank):
+mb-profile.sh init --scope=project --role=frontend --stack=typescript --architecture=fsd --delivery=sdd
+```
+
+Supported role presets: **backend**, **frontend**, **mobile**.
+Supported stack presets: **go**, **python**, **javascript**, **typescript**, **java**, **generic**.
+Supported architecture presets: clean, hexagonal, modular-monolith, microservices, ddd, fsd, mobile-udf, event-driven.
+Supported delivery presets: tdd, contract-first, api-first, sdd, legacy-safe, exploratory.
+
+Rules-only mode personalization: a user-global profile (`~/<agent-config>/memory-bank/rules-profile.json`) applies Go/backend/microservices presets even when no project Memory Bank exists. No project files are written. Use `/mb profile init --scope=user ...` or `mb-profile.sh init --scope=user ...`.
+
+Canonical machine format is **JSON**. YAML examples appear in documentation only and must be converted before storage. For full guidance see [docs/rule-profiles.md](docs/rule-profiles.md).
+
+### Configuring the pipeline
+
+`/mb work` is driven by a declarative **`pipeline.yaml`** — it maps roles → agents (which model implements, reviews, judges), picks the default workflow, and sets review tolerance, severity gates, and protected paths. You rarely need to touch it, but when you do:
+
+```bash
+/mb config init        # copy the bundled default into .memory-bank/pipeline.yaml to customize
+/mb config show        # print the resolved config (project override → bundled default)
+/mb config validate    # schema-check the file before running work
+/mb config path        # print the absolute path of the resolved pipeline
+```
+
+**Compose a workflow per run** with launch flags — no config edit needed (precedence: flags > `pipeline.yaml` > default):
+
+```
+/mb work --workflow governed            # pick a preset: simple | medium | complex | governed
+/mb work --tier large                   # or name the task size and let it pick the preset
+/mb work --verify=stage                 # verifier cadence: stage | plan (default) | run | off
+/mb work --review                       # add a review step: implement → verify → review → done
+/mb work --review --judge               # add an independent GO / NO_GO judge gate after review
+/mb work billing-overhaul --workflow full   # whole chain from scratch: discuss → sdd → plan → … → done (needs a topic)
+/mb work --stages implement,verify      # run an exact subset
+```
+
+**Just describe the intent in a prompt** and the agent picks the flags for you — e.g. *"execute the billing spec with review and an independent judge"* runs `/mb work billing --review --judge`; *"just implement and verify, no review"* runs the default. To make a choice permanent for the project, set it in `pipeline.yaml` (`review.enabled: true`, `workflow.default: governed`) or keep several presets side by side with **named pipelines** (`/mb pipeline new codex --agent claude-code`, `/mb pipeline use codex`). Full schema and every knob: [docs/pipeline-yaml.md](docs/pipeline-yaml.md).
+
+**Models by role.** A cost tier maps every role class to a model slot, per host. The default `optimal` puts the planner, reviewer and judge on the premium model and the implementer and verifier on the mid one; `premium` and `economy` move everything up or down. `/mb cost` reads your transcripts and reports what a run actually spent — per session, per role, per work item.
+
+```yaml
+cost: optimal            # premium | optimal | economy
+model_profiles:
+  claude-code: {premium: opus, mid: sonnet}
+  codex:       {premium: gpt-6-astra, mid: gpt-6.1-sol}
+```
+
+### Notes, reports, backlog & roadmap
+
+Beyond `status.md`/`checklist.md`, the bank has four surfaces you accumulate knowledge in — and you reference all of them in plain prompts (*"check the notes before you start"*, *"add that to the backlog"*, *"what's next on the roadmap?"*). The agent reads and writes them directly.
+
+- **`notes/`** — short, reusable **patterns and lessons** (5–15 lines each, not a chronological log). Write one with `/mb note <topic>`; `/mb done` also drops a note when a session learned something worth keeping, and `/mb consolidate` distils recurring facts from old sessions into notes automatically.
+- **Research reports** — `/mb research <query>` dispatches the `mb-research` agent (graph → semantic → web) and returns `file:line`-grounded findings; larger investigations and audits land as dated files under `reports/`, which you can point later prompts at (*"follow the plan from the competitive-landscape report"*).
+- **`backlog.md`** — the running list of **ideas** with monotonic IDs (`I-NNN`). Architecture decisions live separately in **`adr.md`** (`ADR-NNN` via `/mb adr <title>`). Governed reviews feed it on their own: a `GO_WITH_BACKLOG` judge verdict registers every non-blocking finding here before the work is marked done — so nothing is lost, and nothing blocks a clean stage.
+- **`roadmap.md`** — the prioritized plan queue. Its autosync block is regenerated from `plans/*.md` frontmatter by `/mb roadmap-sync`, so the roadmap always reflects the real plans instead of drifting.
+- **`agreements.md`** — the running registry of **confirmed decisions**. When you settle something with the agent ("we deploy as one artifact", "engine X, not Y"), it records `AGR-NNN` with a one-line statement; a changed decision supersedes the old one (`--supersedes N`) instead of leaving two active. The active list is mirrored into `CLAUDE.md`/`AGENTS.md`, so every future session — and every subagent — starts already knowing what was agreed. Manage with `/mb agree` (`add` / `question` / `list`); unconfirmed ideas park as questions until you decide.
+
+The through-line: **researchers, reviewers, and the judge maintain these files as a side effect of running** — you don't hand-curate them, and any later prompt (or teammate's agent) can build on what they wrote.
+
+---
+
+## Teams, goals and QA
+
+Three commands turn the single-agent loop into a delivery system. Each one runs on top of `/mb work`, so every gate you configured still applies.
+
+### `/mb team` — parallel tracks in one working tree
+
+One task, several tracks, all editing the same tree. A track is a role agent (`mb-backend`, `mb-frontend`, `mb-qa`…) that owns a set of file globs, runs the full `/mb work` loop for its part, writes one report and talks only to a shared board.
+
+```
+/mb team init checkout                  # brief + contract freeze on the coordination board
+/mb team track add A --role backend --files 'api/**' --size standard \
+    --task "Card payments endpoint" --dod "An unknown card is refused with 402 and a test proves it"
+/mb team plan                           # tracks, waves, pipeline per track — you confirm before dispatch
+/mb team next                           # the loop: dispatch · fix · collect · stop_human · stop_success
+```
+
+- **Files have one owner.** Waves are computed from globs and dependencies; overlapping tracks never run at once, and heavy shared commands (a native build, the full suite) wait in a fair FIFO lock queue.
+- **No copy-paste foundations.** When several tracks need the same mechanism, the plan blocks and proposes a foundation track; a registry of shared mechanisms makes a second copy a review blocker.
+- **Contracts that execute.** A track can carry a frozen contract — spec, rules and DoD checks that are red before the work and green after it; the commit runs it again.
+- **Whole-spec check and a scoped commit.** At wave end every spec requirement is verified, then you get a y/N commit of the team's files. Nothing is pushed for you.
+
+Everything resumes from `team.json`, the brief, the reports and the board after a compaction. Guide: [docs/mb-team.md](docs/mb-team.md) · contract: [commands/team.md](commands/team.md).
+
+### `/mb drive` — a goal, driven to evidence
+
+Write the end state as acceptance criteria, then let the loop run. Drive plans every criterion with you and takes one batch of approvals; after that it executes without you — through `/mb work` and `/mb team` — and stops in exactly three ways.
+
+```
+/mb goal                                # scaffold goal.md: end state + acceptance criteria
+/mb drive                               # phase 1: plan with you · phase 2: execute to the firewall
+/mb drive --budget 2000000              # cap the run by tokens
+/mb drive --resume                      # continue a stored run after a restart or compaction
+```
+
+```markdown
+## Acceptance criteria
+
+- [ ] Users can pay by card
+  - plan: plans/2026-11-20_feature_checkout.md
+  - check: bats tests/bats/test_checkout.bats
+```
+
+| Stop | Meaning |
+|------|---------|
+| `stop_success` | the goal is met from evidence, final QA and the firewall are green |
+| `stop_budget` | the token budget of the run is spent |
+| `stop_human` | a stall, a red acceptance check, or a blocking QA bug needs a decision |
+
+A criterion counts only when every linked plan is closed and its `check:` command exits 0 — a checkbox ticked by hand is listed as *unbacked* and ignored. Guide: [docs/mb-drive.md](docs/mb-drive.md) · contract: [commands/drive.md](commands/drive.md).
+
+### `/mb qa` — acceptance QA with a bug registry
+
+Unit and e2e tests prove the code; `/mb qa` proves the user path. A scenario is a short markdown file; the `mb-qa-runner` agent walks it against the live product — browser (Playwright), CLI or HTTP API — and records what it observed.
+
+```
+/mb qa new checkout/guest-pay           # scaffold a scenario under qa/test_cases/
+/mb qa run @smoke                       # run by tag — or `all`, a name, a folder
+/mb qa bugs                             # the registry: critical | major | medium | low
+```
+
+`/mb plan` declares QA up front for standard and larger work, and an open critical or major bug blocks closure in `/mb work`, `/mb team` and `/mb drive`. Guide: [docs/mb-qa.md](docs/mb-qa.md) · contract: [commands/qa.md](commands/qa.md).
+
+### One firewall decides "done"
+
+`mb-flow-verify.sh` fans out to every check and owns the exit code: acceptance criteria, tests, diff scope, protected paths and QA bugs are blockers; rules, lint and leftover TODOs are major. `0` passes, `1` names the red check with its findings, `2` means a check itself broke — never swallowed as a pass. `/mb analyze-task` picks the route (`research · bugfix · code-change · arch · migration`), and `/mb flow <route>` pins it by hand; an override can raise a route, never lower it.
+
+---
+
+## What you get
+
+### 1. Persistent project memory
+
+Across sessions, compaction events, and even across AI agents — the project state survives. Switch from Claude Code to Cursor mid-project and the new agent catches up by reading `.memory-bank/`.
+
+### 2. Engineering rules applied automatically
+
+Installs `~/.claude/RULES.md`, `~/.claude/CLAUDE.md`, canonical skill registration in
+`~/.claude/skills/skill-memory-bank`, compatibility aliases in `~/.claude/skills/memory-bank`,
+`~/.codex/skills/memory-bank`, and `~/.cursor/skills/memory-bank`, plus full Cursor global
+surface (`~/.cursor/hooks.json` — ten hook commands that reference bundle scripts under
+`~/.cursor/skills/memory-bank/hooks/`, **not copied** into `~/.cursor/hooks/` —
++ `~/.cursor/commands/*.md` + `~/.cursor/AGENTS.md` managed section
++ `~/.cursor/memory-bank-user-rules.md` paste-file for Settings → Rules → User Rules),
+plus native OpenCode global files
+(`~/.config/opencode/AGENTS.md` + `~/.config/opencode/commands/`) with:
+
+- **TDD** — tests before implementation
+- **Clean Architecture** (backend) — Infrastructure → Application → Domain, never the reverse
+- **Feature-Sliced Design** (frontend) — `app → pages → widgets → features → entities → shared`
+- **Mobile** (iOS/Android) — UDF + Clean layers, SwiftUI+Observation / Compose+StateFlow
+- **SOLID** — SRP (≤300 LOC / class), ISP (≤5 methods / interface), DIP (constructor injection)
+- **Testing Trophy** — integration > unit > e2e; mock only external services
+- **Coverage** targets — off by default; `/mb rules set coverage 85/95/70` turns them on
+
+The agent reads these rules at session start and follows them without you having to remind it. A short **Key rules** block (under 3 KB) opens every `CLAUDE.md` / `AGENTS.md`; choose its rules and add your own with `/mb rules`.
+
+### 3. Dev-workflow commands
+
+**39 top-level slash-commands** (live in `commands/`):
+
+| Command | Purpose |
+|---------|---------|
+| `/mb <sub>` | Memory Bank hub (45+ sub-commands — see table below) |
+| `/start` | Lightweight session start (loads STATUS/checklist only) |
+| `/done` | Lightweight session close (no full actualize) |
+| `/plan` | Implementation plan generator with DoD/TDD scaffolding (Phase / Sprint / Stage) |
+| `/brief` | Turn a raw request + attached documents into a validated one-page brief under `briefs/<topic>/` |
+| `/discuss` | 5-phase requirements-elicitation interview → `context/<topic>.md` (EARS-validated) |
+| `/groom` | Critical grooming of any task or idea — challenges necessity and approach, records decisions (no spec required) |
+| `/sdd` | Kiro-style spec triple → `specs/<topic>/{requirements,design,tasks}.md` |
+| `/work` | Execute plan/spec stages with role-agents; composable pipeline (`--review`/`--judge`/`--stages`, review **off by default**) |
+| `/drive` | Autonomous goal-driven loop over the deterministic firewall — drives `goal.md` to completion, `stop_success` requires a green firewall AND 100% acceptance |
+| `/team` | Run one task as parallel tracks in one shared tree — brief, per-track pipeline by size, fair resource locks, `next`-driven orchestrator loop, scoped y/N commit |
+| `/qa` | Acceptance QA — md scenarios run against the live product (browser via Playwright MCP or CLI, shell, HTTP API) in an `mb-qa-runner` subagent; strict run report, bugs with severity in `qa/bugs.md` |
+| `/config` | Manage `pipeline.yaml` engine config (init / show / validate / path) |
+| `/pipeline` | Manage multiple named pipelines (`pipelines/<name>.yaml`) — different models + workflow, host auto-binding (list / new / use / show / path / validate) |
+| `/profile` | Manage rule profiles and stack presets (init / show / validate / set / path) |
+| `/rules` | Key rules block at the top of CLAUDE.md / AGENTS.md — list / enable / disable / add / remove / init (onboarding) / sync, `--scope=user\|project` |
+| `/commit` | Conventional-commit message with MB context |
+| `/pr` | Create pull request with structured description |
+| `/review` | Full code review (correctness + security + perf + style) |
+| `/test` | Run tests + coverage analysis + gap report |
+| `/refactor` | Guided refactoring (Strangler Fig, staged diffs) |
+| `/doc` | Generate / refresh documentation from code |
+| `/changelog` | Update CHANGELOG.md from recent commits |
+| `/catchup` | Summarize recent changes since last session |
+| `/adr` | Architecture Decision Record template writer |
+| `/contract` | Contract-first workflow (Protocol/ABC → tests → impl) |
+| `/security-review` | OWASP-focused security audit pass |
+| `/api-contract` | API contract validation + breaking-change detection |
+| `/db-migration` | Safe DB migration planning (rollback, backfill) |
+| `/observability` | Logging / metrics / tracing audit for a module |
+| `/roadmap-sync` | Regenerate `roadmap.md` autosync block from plan frontmatter |
+| `/traceability-gen` | Regenerate REQ → Plan → Test traceability matrix |
+| `/goal` | Scaffold + validate the durable `goal.md`/`project.md` Dynamic Flow artifacts |
+| `/analyze-task` | Auto-classify goal + diff scope into a flow route (Dynamic Flow default entry point) |
+| `/critique` | Critique an artifact against an explicit checklist with validator-feedback retries (Dynamic Flow step) |
+| `/risk-find` | List concrete risks of a change and, for a defect, author the failing repro test (Dynamic Flow step) |
+| `/final-report` | Write the closing report of a flow: what changed, evidence, decisions, open follow-ups (Dynamic Flow step) |
+| `/flow` | Explicitly select a flow route, skipping auto-classification (manual override) |
+| `/agree` | Running list of agreements — the canonical registry of confirmed decisions (`add` / `question` / `--supersedes`) |
+
+**Key `/mb` sub-commands** (full list lives in `commands/mb.md`):
+
+| Sub-command | Purpose |
+|-------------|---------|
+| `/mb` / `/mb context` | Collect project context (status, checklist, active plan) |
+| `/mb start` | Extended session start — full context + active plan body |
+| `/mb done` | Close session — actualize + note + progress |
+| `/mb update` | Refresh core files with live metrics (no note) |
+| `/mb verify` | Verify implementation matches the active plan (CRITICAL before `/mb done`) |
+| `/mb doctor` | Find & fix inconsistencies inside the memory bank |
+| `/mb plan <type> <topic>` | Create detailed plan (feature / fix / refactor / experiment) |
+| `/mb search <query>` | Keyword search across the memory bank |
+| `/mb note <topic>` | Quick knowledge note (5-15 lines) |
+| `/mb tasks` | Show pending tasks from checklist |
+| `/mb index` | Registry of all entries (core + notes/plans/experiments/reports) |
+| `/mb map [focus]` | Scan codebase, write MD docs to `.memory-bank/codebase/` (stack/arch/quality/concerns/all) |
+| `/mb graph [--apply]` | Multi-language code graph (Python `ast`, import-aware calls + Go/JS/TS/Rust/Java tree-sitter, name-based); PageRank god-nodes; opt-in `--questions` / `--cochange` / `--docs` / `--sessions`. See [code-graph docs](docs/concepts/code-graph.md) |
+| `/mb wiki [--dry-run]` | LLM per-community codebase wiki + surprising-connection edges (Haiku/Sonnet subagents, no API key); staleness-aware incremental rebuild |
+| `/mb recall <query>` | Cross-session recall over past chats (`session/` + `notes/`); compact index by default, `--expand <id>` / `--full`. See [session-memory docs](docs/concepts/session-memory.md) |
+| `/mb recap <sid>` | Rebuild a full `progress.md` entry from a session's auto-capture stub (one Haiku call, idempotent) |
+| `/mb conflicts [--judge]` | Surface contradicting memory entries ($0 lexical overlap + negation markers); `--judge` suggests `[SUPERSEDED]` markers (print-only) |
+| `/mb consolidate [--apply]` | Fold old clustered sessions into `notes/` + archive their stubs ($0, dry-run by default) |
+| `/mb reindex [--full]` | Build/refresh the local semantic index for `/mb recall` (fastembed, $0; degrades to lexical) |
+| `/mb compact [--apply]` | Status-based decay — archive old done plans + low-importance notes |
+| `/mb import --project <path>` | Bootstrap MB from Claude Code JSONL transcripts |
+| `/mb tags [--apply]` | Normalize frontmatter tags (Levenshtein-based synonym merge) |
+| `/mb upgrade` | Update skill from GitHub (git pull + re-install) |
+| `/mb init [--minimal\|--full]` | Initialize `.memory-bank/` in a new project |
+| `/mb install [<clients>]` | Install Memory Bank + cross-agent adapters interactively or via client list |
+| `/mb deps [--install-hints]` | Dependency check (python3, jq, git + optional tree-sitter) |
+| `/mb help [subcommand]` | Show sub-command reference inline |
+
+**Run `/mb help` inside any agent** to see this table live; `/mb help <sub>` for full detail of one sub-command.
+
+### 4. Cross-agent portability
+
+One `.memory-bank/` directory, 9 agent hosts:
+
+| Client | Native hooks | Adapter output |
+|--------|--------------|----------------|
+| **Claude Code** | Full lifecycle | `~/.claude/settings.json` + `hooks/` |
+| **Cursor 1.7+** | ✅ (Claude-Code-compatible format) | **Global (auto):** `~/.cursor/{skills,commands,AGENTS.md,hooks.json,memory-bank-user-rules.md}` — `hooks.json` references bundle scripts under `skills/memory-bank/hooks/`, **not copied** · **Project (optional `--clients cursor`):** `.cursor/rules/*.mdc` + `.cursor/hooks.json` |
+| **Windsurf** | ✅ Cascade Hooks | `.windsurf/rules/*.md` + `.windsurf/hooks.json` |
+| **Cline** | ✅ `.clinerules/hooks/*.sh` | `.clinerules/memory-bank.md` + `hooks/` |
+| **Kilo** | ❌ (fallback to git hooks) | `.kilocode/rules/` + `.git/hooks/` |
+| **OpenCode** | ✅ TypeScript plugins + native commands | `~/.config/opencode/{AGENTS.md,commands/}` + project `AGENTS.md` + `opencode.json` + TS plugin |
+| **Codex** (OpenAI) | ✅ Global native hooks, session memory, skill and roles | `~/.codex/skills/memory-bank` + `~/.codex/AGENTS.md` + `~/.codex/hooks.json` + optional project settings |
+| **Pi Code** | Global skill + global prompts + `AGENTS.md` | `~/.pi/agent/skills/memory-bank`, `~/.pi/agent/prompts/*.md`, `~/.pi/agent/AGENTS.md` + optional project `AGENTS.md` |
+| **Hermes Agent** | Plugin: session context, handoff, semantic reindex | `hermes/memory-bank` plugin — a bank per folder, project or profile; [setup](hermes/README.md) |
+
+`AGENTS.md` is shared across OpenCode, Codex, Pi — ownership is refcount-tracked, so uninstalling one client doesn't break the others.
+
+---
+
+## The code graph
+
+`grep -rn` burns tokens and lies — it matches strings, comments, and shadowed names. `/mb graph` builds a **deterministic, queryable map of your codebase** instead, with three different ways to ask it questions.
+
+```bash
+/mb graph --apply    # → .memory-bank/codebase/graph.json + god-nodes.md
+```
+
+- **Languages:** Python (stdlib `ast`), Bash and Bats (stdlib `re`) always on with zero extra deps + Go, JavaScript, TypeScript, Rust, Java via tree-sitter (`pip install 'memory-bank-skill[codegraph]'`).
+- **`graph.json`** — JSON Lines: one node (module / function / class) or edge (import / call / inherit) per line. Greppable, `jq`-queryable, diffable, committable.
+- **`god-nodes.md`** — refactoring hotspots: top symbols and modules ranked by **PageRank** (transitive importance, degree as a secondary column), **bridge files** by betweenness centrality, Louvain module communities. Degrades to degree-only without `networkx`.
+- **Incremental:** SHA256 per-file cache — the first build takes minutes on a 1000-file repo, rebuilds take seconds.
+
+### Three ways to use it
+
+| Mode | Tool | Question it answers | Cost |
+|------|------|---------------------|------|
+| **1. Structural queries** | `mb-graph.sh` (`who-calls` / `impact` / `tests`) or raw `jq` | "Who calls X?" · "What breaks if I change X?" · "Which tests cover X?" | $0, <1 s |
+| **2. Semantic search** | `mb-graph.sh search` — pure BM25 by default, or **RRF-fused** BM25 + local embeddings when installed | "Where is the rate-limiting logic?" — concept queries, tolerant to naming | $0, fully local |
+| **3. LLM wiki** | `/mb wiki` — Haiku writes one article per module community, Sonnet hunts cross-community "surprising connections" | "Give me the map" · "What non-obvious links exist?" | your agent's own subagents — **no extra API key** |
+
+```bash
+# 1 — before a refactor: deterministic, zero tokens (run from the skill directory)
+bash scripts/mb-graph.sh who-calls WriteFile    # direct callers only
+bash scripts/mb-graph.sh impact    WriteFile    # everything that breaks, transitively
+bash scripts/mb-graph.sh tests     WriteFile    # tests that cover it (bats → shell → Python)
+jq -r 'select(.type=="edge" and .kind=="call" and .dst=="WriteFile") | .src' \
+   .memory-bank/codebase/graph.json
+
+# 2 — find code by meaning, not by name (an identifier → BM25, a phrase → local embeddings)
+bash scripts/mb-graph.sh search "how does auth token refresh work"
+
+# 3 — a written wiki of your architecture + semantic edges with confidence + rationale
+/mb wiki
+```
+
+**Opt-in layers** (without them the base output stays byte-identical):
+
+- `--cochange` — git-history co-change edges: files that change together *without importing each other* (test ↔ subject, config ↔ reader). Coupling no AST can see. Also emits a per-file `churn_30d` signal that gives recently-hot files a small semantic-search boost.
+- `--questions` — deterministic suggested questions appended to `god-nodes.md` ("what should I look at first?").
+- `--docs` — signatures + docstrings on nodes, so semantic search matches intent, not just identifiers.
+- `--sessions` — bridges session memory into the graph (`session` nodes + `worked_on` edges + `doc` appends) so semantic search answers work-history queries. Session strings are `<private>`-stripped + secret-redacted at write time, and the layer is applied last so god-node ranking is unaffected.
+
+The dev-role subagents are wired to the graph automatically (`graph_neighbors` / `graph_impact` / `graph_tests` routing): before editing they check the blast radius instead of guessing, and fall back to plain `grep` when the graph is missing or stale — the graph never blocks work.
+
+**In the pipeline.** `/mb work` injects a bounded `## Graph` block into implementer, reviewer and judge prompts and refreshes the graph after every finished item. A hook notices structural greps and answers with a runnable `mb-graph.sh` command naming the real symbol. `/mb graph --apply` also warms the semantic vector index, so the first concept search reads a cache.
+
+### How it compares
+
+| | memory-bank-skill | Aider repo-map | Serena MCP | Cursor indexing | Cline |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Persistent queryable graph on disk | ✅ JSONL | ❌ ranked text per request | ❌ live LSP | ❌ server-side vectors | ❌ no index |
+| Structural queries ("who calls X?") | ✅ jq / CLI | ❌ | ✅ LSP-precise | ❌ similarity only | ❌ |
+| Works offline, $0, no server process | ✅ | ✅ | ⚠️ local server | ❌ cloud embeddings | ✅ |
+| Git co-change edges | ✅ opt-in | ❌ | ❌ | ❌ | ❌ |
+| LLM codebase wiki + semantic edges | ✅ no extra API key | ❌ | ❌ | ❌ | ❌ |
+| Lives next to project memory (plans / ADRs / sessions) | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+Honest trade-offs: language coverage is 8 vs Aider's 130+; call resolution is **import-aware for Python** (stdlib `ast`, follows the file's imports) but **name-based** for Bash/Bats and the tree-sitter languages (Go/JS/TS/Rust/Java) — an LSP / type-checker like Serena is still more precise on dynamic dispatch and cross-language aliases; and there is no automatic PageRank-ranked context packing like Aider's repo-map (god-nodes *are* PageRank-ranked, but you query the graph explicitly). We trade those for a persistent, $0, locally queryable artifact that lives next to the rest of your project memory.
+
+Full reference: [code-graph concepts](docs/concepts/code-graph.md) · [jq cookbook](references/code-graph.md).
+
+---
+
+## Usage examples
+
+### Starting a new feature
+
+```
+You: /mb plan feature user-auth
+
+Agent: [creates .memory-bank/plans/2026-04-20_feature_user-auth.md with DoD,
+        test plan, stage breakdown, dependencies]
+
+You: Now implement stage 1.
+
+Agent: [reads plan, writes failing tests first (TDD), then implementation,
+        runs tests, updates checklist ⬜ → ✅]
+
+You: /mb verify
+
+Agent: [plan-verifier agent checks that implementation matches plan DoD]
+
+You: /mb done
+
+Agent: [appends session summary to progress.md, updates status.md if needed]
+```
+
+### Jumping into an existing project
+
+```bash
+cd some-legacy-project/
+memory-bank install                     # global install for all supported clients
+#                                       # (Claude + Cursor + Codex + OpenCode, auto)
+memory-bank install --clients cursor    # OPTIONAL: also wire .cursor/ project adapter
+#                                       # — global parity already active without this flag
+
+# In Cursor:
+/mb init --full                         # auto-detect stack, generate CLAUDE.md
+/mb start                               # load everything
+```
+
+### Cursor-only quick start
+
+```bash
+# Step 1. Install (no --clients flag needed for Cursor global parity)
+memory-bank install
+
+# Step 2 (one-time, per machine). Cursor User Rules panel is UI-only —
+# paste the generated bundle into Settings → Rules → User Rules:
+pbcopy < ~/.cursor/memory-bank-user-rules.md           # macOS
+xclip -selection clipboard < ~/.cursor/memory-bank-user-rules.md   # Linux
+# The file is wrapped in <!-- memory-bank:start vX.Y.Z --> / <!-- memory-bank:end --> markers.
+
+# Step 3. Open any project in Cursor and run:
+/mb init                                # one-time per project
+/mb start                               # every session
+```
+
+### Sharing state with your team
+
+`.memory-bank/` is just markdown. Commit it. Your colleague clones the repo, runs `/mb start`, and has the full project context without asking you a single question.
+
+---
+
+## CLI reference
+
+After `pipx install memory-bank-skill`:
+
+```bash
+memory-bank install [--clients <list>] [--language <en|ru|es|pt|zh>] [--project-root <path>] [--non-interactive]
+memory-bank uninstall [-y|--non-interactive]
+memory-bank init                    # prints /mb init hint
+memory-bank version
+memory-bank self-update             # prints `pipx upgrade ...`
+memory-bank doctor                  # resolves bundle, platform info, checks bash
+memory-bank --help
+```
+
+Flags:
+- `--clients <list>` — comma-separated. Valid: `claude-code, cursor, windsurf, cline, kilo, opencode, pi, codex`. If omitted and running in a TTY → interactive menu. Non-TTY default: `claude-code` only.
+- `--project-root <path>` — where to place client-specific adapters. Default: current directory.
+- `--non-interactive` — never prompt; use defaults when `--clients` not specified. Use in CI / scripted installs.
+- `-y` / `--non-interactive` on `uninstall` — skip the confirmation prompt. Use in CI / scripted cleanup.
+
+**Global agent resources install independently of `--clients`:** OpenCode, Codex, and Pi
+each get their global agent resources (skill alias, global `AGENTS.md` entrypoint, prompt
+templates) on **every** `install` run, regardless of which clients `--clients` selects —
+these are cheap, idempotent, and useful the moment you open that host, even before you
+pick it for a given project. Only the **project-local** adapter (`.codex/`, `.opencode/`,
+project `AGENTS.md`) is gated by `--clients`. Gating the global install itself by selected
+clients is a separate, not-yet-implemented product decision.
+
+---
+
+## Staying up to date
+
+Every Claude Code session start, the skill checks (at most once per `MB_UPDATE_CHECK_TTL`
+window) whether a newer release exists — GitHub Release first, PyPI JSON as fallback — and, only
+when one is available, prints a short notice naming `current -> latest` plus the exact upgrade
+command for *your* install flavor (`git pull` for a clone; `pipx upgrade` / `pip install -U` /
+`brew upgrade` followed by `memory-bank install` otherwise — the re-install keeps your saved options). An up-to-date install sees nothing. The check itself never touches the
+network from the hook path (it reads a local TTL cache and refreshes it in the background), is
+fail-open, and never blocks a session.
+
+- `MB_UPDATE_CHECK=off` disables the check entirely (no notice, no cache writes).
+- `MB_UPDATE_CHECK_TTL=<seconds>` tunes how often the cache refreshes (default `86400`, 24h).
+- `MB_AUTO_UPDATE=on` opts into auto-applying the update — but only for a `git clone` install with
+  a clean working tree (`mb-upgrade.sh --force` runs for you); pipx/pip/brew installs are never
+  auto-run, only the notice tells you the command to run yourself.
+
+See `/mb upgrade` in [commands/mb.md](commands/mb.md) for the manual, on-demand command.
+
+---
+
+## Environment variables
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `MB_AUTO_CAPTURE` | SessionEnd auto-capture mode: `auto` / `strict` / `off` | `auto` |
+| `MB_REDACT_SECRETS` | Redact API keys/tokens (sk-…, ghp\_…, AKIA…, JWT, `*_API_KEY=` values…) from session capture and the semantic index before they reach disk | `on` |
+| `MB_COMPACT_REMIND` | Weekly `/mb compact` reminder: `auto` / `off` | `auto` |
+| `MB_ALLOW_METRICS_OVERRIDE` | Allow executing project-local `.memory-bank/metrics.sh` overrides | `0` |
+| `MB_PI_MODE` | Pi project adapter mode. Supported: `agents-md` (project `AGENTS.md`) or `skill` (`~/.pi/agent/skills/memory-bank`; leaves existing global symlink unchanged) | `agents-md` |
+| `MB_SKILL_BUNDLE` | Override bundle path (dev / testing) | auto-detected |
+| `MB_SKIP_DEPS_CHECK` | Skip preflight dep check in `install.sh` | `0` |
+| `MB_UPDATE_CHECK` | SessionStart "newer release?" notice: `on` / `off` | `on` |
+| `MB_UPDATE_CHECK_TTL` | Update-check cache TTL, seconds | `86400` |
+| `MB_AUTO_UPDATE` | Auto-apply updates for a clean git-clone install only: `on` / `off` | `off` |
+
+---
+
+## Platform support
+
+| OS | Status |
+|----|--------|
+| macOS | ✅ Native |
+| Linux | ✅ Native |
+| Windows (Git Bash) | ✅ Via Git for Windows — install works, CLI auto-detects `bash.exe` |
+| Windows (WSL) | ✅ Full native POSIX path |
+| Windows (native PowerShell, no bash) | ⚠️ Fails with install hint |
+
+**Windows quick start:**
+
+```powershell
+# Either:
+winget install Git.Git            # → supplies bash.exe at C:\Program Files\Git\bin\bash.exe
+# or:
+wsl --install                     # → full Linux env
+pip install memory-bank-skill     # inside WSL or with Git Bash on PATH
+memory-bank doctor                # verifies bash discovery
+memory-bank install               # works once bash is resolvable
+```
+
+`memory-bank doctor` on Windows reports the detected bash path (or an install hint if none found).
+
+---
+
+## FAQ
+
+**Q: Do I need to commit `.memory-bank/` to git?**
+A: Recommended if working in a team — that's how state is shared. Solo project: optional. Either way works.
+
+**Q: Does this replace Claude Code's built-in memory?**
+A: No — complementary. Native memory is per-user, cross-project (preferences, style). `.memory-bank/` is per-project, team-shared (status, plans, decisions). Both load simultaneously.
+
+**Q: Will it work on private repositories?**
+A: Yes. Everything is local. No data sent anywhere unless your AI agent itself calls external APIs (that's unchanged).
+
+**Q: What if my team uses different AI agents?**
+A: That's the whole point. Install per-client: `memory-bank install --clients cursor,windsurf,claude-code`. One memory bank, everyone reads it.
+
+**Q: Cursor hooks are experimental / Codex hooks are experimental — is that a problem?**
+A: Partial — where native hooks don't exist or aren't stable, we ship graceful fallbacks or conservative integration. Cursor global install wires 10 hooks including `sessionStart`, matcher-aware `preToolUse`, and matcher-aware `postToolUse`. Codex installs global native hooks; review and trust their definitions in `/hooks` before they run. See [docs/cross-agent-setup.md](docs/cross-agent-setup.md) for specifics.
+
+**Q: My existing `AGENTS.md` / `.cursor/hooks.json` — will this overwrite them?**
+A: No. Adapters use a marker pattern (`<!-- memory-bank:start/end -->` for MD files, `_mb_owned: true` for JSON hooks) and merge idempotently. User content is preserved; uninstall only removes MB-owned sections.
+
+**Q: How do I upgrade?**
+A: `pipx upgrade memory-bank-skill && memory-bank install` or `brew upgrade memory-bank && memory-bank install`. Git-clone install: `cd ~/.claude/skills/skill-memory-bank && git pull && ./install.sh`.
+
+**Q: Does reinstalling create `.pre-mb-backup.*` files every time?**
+A: No. Since `3.0.0`, `install.sh` is byte-level idempotent: each target is compared via `cmp -s` to the expected post-install content (including localization) and backup is created only if content actually differs. Repeat installs on an up-to-date tree produce zero backups. Language swap (`--language en` → `--language ru`) backs up exactly the localize-target files (`RULES.md`, `memory-bank-user-rules.md`) and nothing else.
+
+**Q: I want to remove everything.**
+A: `memory-bank uninstall -y` removes global install without a prompt. Per-project adapters: `adapters/<client>.sh uninstall <project-dir>`.
+
+**Q: Can a project-local `.memory-bank/metrics.sh` run arbitrary commands during install or doctor flows?**
+A: Not by default. Project-local metrics overrides are disabled unless you explicitly opt in with `MB_ALLOW_METRICS_OVERRIDE=1`. Without that env var, the shipped stack detection stays on the safe built-in path.
+
+**Q: Does Pi need a separate setup step?**
+A: `memory-bank install` now writes Pi global artifacts automatically: `~/.pi/agent/AGENTS.md`, `~/.pi/agent/skills/memory-bank`, and slash prompt templates in `~/.pi/agent/prompts/`. In an existing Pi session, run `/reload` after install. For a project-level shared `AGENTS.md`, additionally run `memory-bank install --clients pi --project-root <repo>`. Existing local Pi skill directories are backed up outside `~/.pi/agent/skills/` so Pi does not discover backup copies as duplicate skills.
+
+**Q: Is this production-ready?**
+A: Yes. Current stable line is **v5.4.1** (released 2026-11-20) — see [CHANGELOG.md](CHANGELOG.md) for the exact version, which is also authoritative in `VERSION`. Daily used on real projects — including on this repository itself (the skill maintains its own `.memory-bank/`). Test envelope: 7,000+ automated tests (pytest + bats + node) on Python 3.11/3.12 × Ubuntu and macOS. Stable API.
+
+---
+
+## Documentation
+
+**Get started** *(learning)*
+
+- **[5-minute quick start](#5-minute-quick-start)** — install → `/mb init` → `/mb start` → work → `/mb done`
+- **[Your first feature, end to end](docs/first-feature.md)** — a worked example: plan → TDD → verify → done
+- **[Install guide](docs/install.md)** — pipx / Homebrew / git-clone with troubleshooting
+- **[Overview](docs/concepts/overview.md)** — the mental model in one page
+- **[Agent operating guide](docs/agent-guide.md)** — one plain-markdown page to hand to your AI agent
+
+**Concepts** *(understanding)*
+
+- **[Composable `/mb work` pipeline](commands/work.md)** — four presets (`simple · medium · complex · governed`), `--review`/`--judge`/`--stages`, verifier cadence
+- **[The development flow](docs/flow.md)** — eight stations from a raw request to verified code, and the task tiers that pick the route
+- **[/mb team](docs/mb-team.md)** · **[/mb drive](docs/mb-drive.md)** · **[/mb qa](docs/mb-qa.md)** — parallel tracks, the goal loop, acceptance QA
+- **[Routes, firewall and cost](docs/routes-and-firewall.md)** — what "green" means and which model does which job
+- **[Code graph & semantic search](docs/concepts/code-graph.md)** — `/mb map`, `/mb graph` (+`--questions`/`--cochange`/`--docs`), `mb-semantic-search.py`, `/mb wiki`
+- **[Cross-session memory](docs/concepts/session-memory.md)** — `/mb recall`, session hooks, the local semantic index
+- **[Rule profiles & presets](docs/rule-profiles.md)** — tune the rules to your role/stack without weakening the safety baseline
+
+**How-to** *(tasks)*
+
+- **[Cross-agent setup](docs/cross-agent-setup.md)** — per-client cheatsheet + hook capability matrix
+- **[Troubleshooting](docs/troubleshooting.md)** — common issues and fixes
+- **[v4 → v5 migration](docs/MIGRATION-v4-v5.md)** — review now off by default; composable `/mb work` pipeline
+- **[v3.0 → v3.1 migration](docs/MIGRATION-v3-v3.1.md)** · **[v1 → v2 migration](docs/MIGRATION-v1-v2.md)** — older structural upgrades
+- **[Repository migration](docs/repo-migration.md)** — for users upgrading from `claude-skill-memory-bank`
+
+**Reference**
+
+- **[Agents reference](docs/agents-reference.md)** — all 29 subagents and when each one is invoked
+- **[Release process](docs/release-process.md)** — PyPI OIDC setup + tag workflow
+- **[CHANGELOG](CHANGELOG.md)** — version history
+- **[Security policy](SECURITY.md)** — reporting, scope, design decisions
+
+---
+
+## Credits
+
+Several `/mb discuss` and `/mb work` patterns are adapted from
+[mattpocock/skills](https://github.com/mattpocock/skills) (MIT) — the grilling
+interview rules, the red-capable eval gate, tracer-bullet/DAG execution, the
+triage state machine, and the per-role agent briefs. The future `/mb docs`
+command follows Andrej Karpathy's LLM-wiki gist for incremental wiki generation.
+
+## Contributing
+
+1. Fork & clone.
+2. `./install.sh && /mb init` in the repo itself (this skill uses itself — meta but works).
+3. Write tests first (TDD). `bats tests/bats/ tests/e2e/ hooks/tests/*.bats` + `python3 -m pytest hooks/tests/ tests/pytest/`. Lint: `shellcheck -x scripts/*.sh hooks/*.sh hooks/lib/*.sh adapters/*.sh install.sh` + `ruff check scripts/ hooks/lib/ memory_bank_skill/ settings/ tests/pytest/`.
+4. Follow the rules in `rules/RULES.md` (the same ones the skill enforces on users).
+5. Open a PR. CI runs on Python 3.11 + 3.12 × ubuntu + macos.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
+## Links
+
+- **Website:** https://fockus.github.io/skill-memory-bank/
+- **Repo:** https://github.com/fockus/skill-memory-bank
+- **PyPI:** https://pypi.org/project/memory-bank-skill/
+- **Homebrew tap:** https://github.com/fockus/homebrew-tap
+- **Issues:** https://github.com/fockus/skill-memory-bank/issues
+
+---
+
+<div align="center">
+
+<a href="https://www.star-history.com/#fockus/skill-memory-bank&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=fockus/skill-memory-bank&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=fockus/skill-memory-bank&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=fockus/skill-memory-bank&type=Date" width="600" />
+  </picture>
+</a>
+
+**Your agent is already smart. memory-bank-skill makes it remember, follow a process and work as a team.**
+
+</div>

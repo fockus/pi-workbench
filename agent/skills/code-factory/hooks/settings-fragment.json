@@ -1,0 +1,40 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [{"type": "command", "command": "bash skill/hooks/pre-tool-ownership.sh"}]
+      },
+      {
+        "matcher": "*",
+        "hooks": [{"type": "command", "command": "bash skill/hooks/pre-tool-budget.sh"}]
+      },
+      {
+        "matcher": "*",
+        "hooks": [{"type": "command", "command": "bash skill/hooks/pre-tool-cb.sh"}]
+      },
+      {
+        "matcher": "Write|Edit|Bash",
+        "hooks": [{"type": "command", "command": "bash skill/hooks/pre-tool-prompt-guard.sh"}]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [{"type": "command", "command": "bash skill/hooks/post-tool-cost.sh"}]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [{"type": "command", "command": "bash skill/hooks/post-tool-quality.sh"}]
+      },
+      {
+        "matcher": "*",
+        "hooks": [{"type": "command", "command": "bash skill/hooks/post-tool-context.sh"}]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [{"type": "command", "command": "bash skill/hooks/post-tool-test-autorun.sh"}]
+      }
+    ]
+  }
+}
